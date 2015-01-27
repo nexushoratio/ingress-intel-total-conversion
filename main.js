@@ -1,7 +1,7 @@
 // ==UserScript==
 // @id             ingress-intel-total-conversion@jonatkins
 // @name           IITC: Ingress intel map total conversion
-// @version        0.20.1.@@DATETIMEVERSION@@
+// @version        0.20.2.@@DATETIMEVERSION@@
 // @namespace      https://github.com/jonatkins/ingress-intel-total-conversion
 // @updateURL      @@UPDATEURL@@
 // @downloadURL    @@DOWNLOADURL@@
@@ -72,14 +72,14 @@ document.getElementsByTagName('body')[0].innerHTML = ''
   + '<div id="map">Loading, please wait</div>'
   + '<div id="chatcontrols" style="display:none">'
   + '<a accesskey="0" title="[0]"><span class="toggle expand"></span></a>'
-  + '<a accesskey="1" title="[1]">full</a><a accesskey="2" title="[2]">compact</a>'
-  + '<a accesskey="3" title="[3]">public</a><a accesskey="4" title="[4]" class="active">faction</a>'
+  + '<a accesskey="1" title="[1]">all</a>'
+  + '<a accesskey="2" title="[2]" class="active">faction</a>'
+  + '<a accesskey="3" title="[3]">alerts</a>'
   + '</div>'
   + '<div id="chat" style="display:none">'
   + '  <div id="chatfaction"></div>'
-  + '  <div id="chatpublic"></div>'
-  + '  <div id="chatcompact"></div>'
-  + '  <div id="chatfull"></div>'
+  + '  <div id="chatall"></div>'
+  + '  <div id="chatalerts"></div>'
   + '</div>'
   + '<form id="chatinput" style="display:none"><table><tr>'
   + '  <td><time></time></td>'
@@ -132,13 +132,10 @@ window.ZOOM_LEVEL_ADJ = 5; // add 5 seconds per zoom level
 window.ON_MOVE_REFRESH = 2.5;  //refresh time to use after a movement event
 window.MINIMUM_OVERRIDE_REFRESH = 10; //limit on refresh time since previous refresh, limiting repeated move refresh rate
 window.REFRESH_GAME_SCORE = 15*60; // refresh game score every 15 minutes
-window.MAX_IDLE_TIME = 4*60; // stop updating map after 4min idling
+window.MAX_IDLE_TIME = 15*60; // stop updating map after 15min idling
 window.HIDDEN_SCROLLBAR_ASSUMED_WIDTH = 20;
 window.SIDEBAR_WIDTH = 300;
 
-// how many items to request each query
-window.CHAT_PUBLIC_ITEMS = 50;
-window.CHAT_FACTION_ITEMS = 50;
 // how many pixels to the top before requesting new data
 window.CHAT_REQUEST_SCROLL_TOP = 200;
 window.CHAT_SHRINKED = 60;
@@ -205,6 +202,7 @@ window.DEG2RAD = Math.PI / 180;
 // getters/setters, but if you are careful enough, this works.
 window.refreshTimeout = undefined;
 window.urlPortal = null;
+window.urlPortalLL = null;
 window.selectedPortal = null;
 window.portalRangeIndicator = null;
 window.portalAccessIndicator = null;
