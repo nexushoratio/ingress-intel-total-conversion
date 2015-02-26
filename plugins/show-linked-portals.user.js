@@ -22,6 +22,15 @@
 window.plugin.showLinkedPortal = function () {
 };
 
+plugin.showLinkedPortal.previewOptions = {
+  color: "#C33",
+  opacity: 1,
+  weight: 5,
+  fill: false,
+  dashArray: "1,6",
+  radius: 18,
+};
+
 window.plugin.showLinkedPortal.portalDetail = function (data) {
   plugin.showLinkedPortal.removePreview();
 
@@ -39,7 +48,7 @@ window.plugin.showLinkedPortal.portalDetail = function (data) {
     var lat = link[key + 'LatE6']/1E6;
     var lng = link[key + 'LngE6']/1E6;
 
-    var div = $('<div>').addClass('showLinkedPortalLink showLinkedPortalLink' + c);
+    var div = $('<div>').addClass('showLinkedPortalLink showLinkedPortalLink' + c + (key=='d' ? ' outgoing' : ' incoming'));
 
     var title;
 
@@ -119,14 +128,16 @@ plugin.showLinkedPortal.onLinkedPortalMouseOver = function() {
 
   if(!(lat && lng)) return; // overflow
 
-  var position = L.latLng(lat, lng);
-  plugin.showLinkedPortal.preview = L.circleMarker(position, {
-    color: "red",
-    weight: 5,
-    fill: false,
-    dashArray: "1,6",
-    radius: 18,
-  }).addTo(map);
+  var remote = L.latLng(lat, lng);
+  var local = portals[selectedPortal].getLatLng();
+
+  plugin.showLinkedPortal.preview = L.layerGroup().addTo(map);
+
+  L.circleMarker(remote, plugin.showLinkedPortal.previewOptions)
+    .addTo(plugin.showLinkedPortal.preview);
+
+  L.geodesicPolyline([local, remote], plugin.showLinkedPortal.previewOptions)
+    .addTo(plugin.showLinkedPortal.preview);
 };
 
 plugin.showLinkedPortal.onLinkedPortalMouseOut = function() {
@@ -141,23 +152,7 @@ plugin.showLinkedPortal.removePreview = function() {
 
 var setup = function () {
   window.addHook('portalDetailsUpdated', window.plugin.showLinkedPortal.portalDetail);
-  $('head').append('<style>' +
-    '.showLinkedPortalLink{cursor: pointer; position: absolute; height: 40px; width: 50px; border:solid 1px; overflow: hidden; text-align: center; background: #0e3d4e;}' +
-    '.showLinkedPortalLink .minImg{height: 40px;}' +
-    '.showLinkedPortalLink.outOfRange span{font-size: 10px;}' +
-
-    '.showLinkedPortalLink1,.showLinkedPortalLink2,.showLinkedPortalLink3,.showLinkedPortalLink4 {left: 5px}' +
-    '.showLinkedPortalLink5,.showLinkedPortalLink6,.showLinkedPortalLink7,.showLinkedPortalLink8 {right: 5px}' +
-    '.showLinkedPortalLink9,.showLinkedPortalLink10,.showLinkedPortalLink11,.showLinkedPortalLink12 {left: 59px}' +
-    '.showLinkedPortalLink13,.showLinkedPortalLink14,.showLinkedPortalLink15,.showLinkedPortalLink16 {right: 59px}' +
-
-    '.showLinkedPortalLink1,.showLinkedPortalLink5,.showLinkedPortalLink9,.showLinkedPortalLink13 {top: 23px; }' +
-    '.showLinkedPortalLink2,.showLinkedPortalLink6,.showLinkedPortalLink10,.showLinkedPortalLink14 {top: 72px; }' +
-    '.showLinkedPortalLink3,.showLinkedPortalLink7,.showLinkedPortalLink11,.showLinkedPortalLink15 {top: 122px; }' +
-    '.showLinkedPortalLink4,.showLinkedPortalLink8,.showLinkedPortalLink12,.showLinkedPortalLink16,.showLinkedPortalOverflow {top: 171px; }' +
-    '.showLinkedPortalOverflow{left: 50%;margin-left:-25px;cursor: default;}' +
-    '#level{text-align: center; margin-right: -0.5em; position: relative; right: 50%; width: 1em;}' +
-    '</style>');
+  $('<style>').prop('type', 'text/css').html('@@INCLUDESTRING:plugins/show-linked-portals.css@@').appendTo('head');
 }
 // PLUGIN END //////////////////////////////////////////////////////////
 
