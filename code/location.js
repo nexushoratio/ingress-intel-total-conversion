@@ -20,6 +20,7 @@ window.storeMapPosition = function() {
 // URL or if neither is present, via Geolocation. If that fails, it
 // returns a map that shows the whole world.
 window.getPosition = function() {
+  console.log('starting getPosition');
   if(getURLParam('latE6') && getURLParam('lngE6')) {
     console.log("mappos: reading email URL params");
     var lat = parseInt(getURLParam('latE6'))/1E6 || 0.0;
@@ -29,9 +30,17 @@ window.getPosition = function() {
   }
 
   if(getURLParam('ll')) {
-    console.log("mappos: reading stock Intel URL params");
+    console.log("mappos: reading stock Intel URL params (ll)");
     var lat = parseFloat(getURLParam('ll').split(",")[0]) || 0.0;
     var lng = parseFloat(getURLParam('ll').split(",")[1]) || 0.0;
+    var z = parseInt(getURLParam('z')) || 17;
+    return {center: new L.LatLng(lat, lng), zoom: z};
+  }
+
+  if(getURLParam('pll')) {
+    console.log("mappos: reading stock Intel URL portal params (pll)");
+    var lat = parseFloat(getURLParam('pll').split(",")[0]) || 0.0;
+    var lng = parseFloat(getURLParam('pll').split(",")[1]) || 0.0;
     var z = parseInt(getURLParam('z')) || 17;
     return {center: new L.LatLng(lat, lng), zoom: z};
   }
