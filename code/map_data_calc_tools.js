@@ -12,9 +12,17 @@
 
 window.getMapZoomTileParameters = function(zoom) {
 
-  var ZOOM_TO_TILES_PER_EDGE = [64, 64, 128, 128, 256, 256, 256, 1024, 1024, 1536, 4096, 4096, 6500, 6500, 6500];
+//  var ZOOM_TO_TILES_PER_EDGE = [64, 64, 128, 128, 256, 256, 256, 1024, 1024, 1536, 4096, 4096, 6500, 6500, 6500];
+//  var ZOOM_TO_TILES_PER_EDGE = [256, 256, 256, 256, 512, 512, 512, 2048, 2048, 2048, 4096, 4096, 6500, 6500, 6500];
+  var ZOOM_TO_TILES_PER_EDGE = [256, 256, 256, 256, 512, 2048, 2048, 4096, 4096, 4096, 4096, 4096, 6500, 6500, 6500];;
   var MAX_TILES_PER_EDGE = 9000;
-  var ZOOM_TO_LEVEL = [8, 8, 8, 8, 7, 7, 7, 6, 6, 5, 4, 4, 3, 2, 2, 1, 1];
+//  var ZOOM_TO_LEVEL = [8, 8, 8, 8, 7, 7, 7, 6, 6, 5, 4, 4, 3, 2, 2, 1, 1];
+  var ZOOM_TO_LEVEL = [8, 8, 8, 8, 8, 8, 7, 7, 6, 6, 5, 4, 3, 2, 2, 1, 1];
+
+  if (niantic_params.ZOOM_TO_LEVEL && niantic_params.TILES_PER_EDGE) {
+    ZOOM_TO_LEVEL = niantic_params.ZOOM_TO_LEVEL;
+    ZOOM_TO_TILES_PER_EDGE = niantic_params.TILES_PER_EDGE;
+  }
 
   // the current API allows the client to request a minimum portal level. the ZOOM_TO_LEVEL list are minimums
   // however, in my view, this can return excessive numbers of portals in many cases. let's try an optional reduction
@@ -58,7 +66,7 @@ window.getDataZoomForMapZoom = function(zoom) {
     // to avoid impacting server load, we keep ourselves restricted to a zoom level with the sane numbre
     // of tilesPerEdge and portal levels visible
 
-    while (zoom > 1) {
+    while (zoom > 5) {
       var newTileParams = getMapZoomTileParameters(zoom-1);
       if (newTileParams.tilesPerEdge != origTileParams.tilesPerEdge || newTileParams.level != origTileParams.level) {
         // switching to zoom-1 would result in a different detail level - so we abort changing things
