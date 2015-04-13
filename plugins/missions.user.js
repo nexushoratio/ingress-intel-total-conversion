@@ -11,6 +11,10 @@
 // @include        http://www.ingress.com/intel*
 // @match          https://www.ingress.com/intel*
 // @match          http://www.ingress.com/intel*
+// @include        https://www.ingress.com/mission/*
+// @include        http://www.ingress.com/mission/*
+// @match          https://www.ingress.com/mission/*
+// @match          http://www.ingress.com/mission/*
 // @grant          none
 // ==/UserScript==
 
@@ -132,7 +136,7 @@ window.plugin.missions = {
 		var me = this;
 		var markers = this.highlightMissionPortals(mission);
 		dialog({
-			// id: 'mission-' + mission.guid,
+			id: 'plugin-mission-details-' + mission.guid.replace(/\./g, '_') /* dots irritate the dialog framework */,
 			title: mission.title,
 			height: 'auto',
 			html: this.renderMission(mission),
@@ -141,7 +145,12 @@ window.plugin.missions = {
 				me.unhighlightMissionPortals(markers);
 			},
 			collapseCallback: this.collapseFix,
-			expandCallback: this.collapseFix
+			expandCallback: this.collapseFix,
+		}).dialog('option', 'buttons', {
+			'Zoom to mission': function() {
+				me.zoomToMission(mission);
+			},
+			'OK': function() { $(this).dialog('close'); },
 		});
 	},
 
@@ -151,7 +160,10 @@ window.plugin.missions = {
 			height: 'auto',
 			width: '400px',
 			collapseCallback: this.collapseFix,
-			expandCallback: this.collapseFix
+			expandCallback: this.collapseFix,
+		}).dialog('option', 'buttons', {
+			'Create new mission': function() { open('//mission-author-dot-betaspike.appspot.com'); },
+			'OK': function() { $(this).dialog('close'); },
 		});
 	},
 
@@ -159,6 +171,16 @@ window.plugin.missions = {
 		if (this && this.parentNode) {
 			this.parentNode.style.height = 'auto';
 		}
+	},
+
+	zoomToMission: function(mission) {
+		var latlngs = mission.waypoints.filter(function(waypoint) {
+			return !!waypoint.portal;
+		}).map(function(waypoint) {
+			return [waypoint.portal.latE6/1E6, waypoint.portal.lngE6/1E6];
+		});
+		
+		map.fitBounds(L.latLngBounds(latlngs), {maxZoom: 17});
 	},
 
 	loadMissionsInBounds: function(bounds, callback, errorcallback) {
@@ -247,7 +269,8 @@ window.plugin.missions = {
 
 			callback(mission);
 		}, function() {
-			console.log('Error loading mission data', guid, arguments);
+			console.error('Error loading mission data: ' + guid + ", " + Array.prototype.slice.call(arguments));
+			
 			if (errorcallback) {
 				errorcallback(error);
 			}
@@ -266,7 +289,7 @@ window.plugin.missions = {
 	renderMissionSummary: function(mission) {
 		var cachedMission = this.getMissionCache(mission.guid);
 
-		var checked = this.settings.checkedMissions[mission.guid];
+		var checked = this.checkedMissions[mission.guid];
 
 		var container = document.createElement('div');
 		container.className = 'plugin-mission-summary mc-' + mission.guid;
@@ -281,13 +304,13 @@ window.plugin.missions = {
 		
 		var title = container.appendChild(document.createElement('a'));
 		title.textContent = mission.title;
-		title.href = '/mission/' + mission.guid; // TODO make IITC load on mission permalinks as well
+		title.href = '/mission/' + mission.guid;
 		title.addEventListener('click', function(ev) {
-			plugin.missions.openMission(mission.guid);
+			this.openMission(mission.guid);
 			// prevent browser from following link
 			ev.preventDefault();
 			return false;
-		}, false);
+		}.bind(this), false);
 		
 		if(cachedMission) {
 			var span = container.appendChild(document.createElement('span'));
@@ -383,16 +406,9 @@ window.plugin.missions = {
 		
 		var summary = container.appendChild(this.renderMissionSummary(mission));
 		
-		// replace link with heading
-		var title = summary.getElementsByTagName('a')[0];
-		var newtitle = document.createElement('h4');
-		newtitle.textContent = mission.title;
-		title.parentNode.replaceChild(newtitle, title);
-		
 		var desc = summary.appendChild(document.createElement('p'));
 		desc.className = 'description';
 		desc.textContent = mission.description;
-		
 		
 		var list = container.appendChild(document.createElement('ol'))
 		mission.waypoints.forEach(function(waypoint, index) {
@@ -417,7 +433,7 @@ window.plugin.missions = {
 			
 			title.href = perma;
 			title.addEventListener('click', function(ev) {
-				renderPortalDetails(waypoint.portal.guid);
+				selectPortalByLatLng(lat, lng);
 				ev.preventDefault();
 				return false;
 			}, false);
@@ -439,7 +455,7 @@ window.plugin.missions = {
 			title.textContent = 'Unknown';
 		
 		var mwpid = mission.guid + '-' + waypoint.guid;
-		var checked = this.settings.checkedWaypoints[mwpid];
+		var checked = this.checkedWaypoints[mwpid];
 		
 		var label = container.appendChild(document.createElement('label'));
 		
@@ -478,13 +494,13 @@ window.plugin.missions = {
 	toggleWaypoint: function(mid, wpid, dontsave) {
 		var mwpid = mid + '-' + wpid;
 		var el = document.getElementsByClassName('wp-' + mwpid);
-		if(!this.settings.checkedWaypoints[mwpid]) {
-			this.settings.checkedWaypoints[mwpid] = true;
+		if(!this.checkedWaypoints[mwpid]) {
+			this.checkedWaypoints[mwpid] = true;
 			window.runHooks('waypointFinished', { mission: this.getMissionCache(mid), waypointguid: wpid });
 		} else {
-			delete this.settings.checkedWaypoints[mwpid];
+			delete this.checkedWaypoints[mwpid];
 		}
-		$(el).prop('checked', !!this.settings.checkedWaypoints[mwpid]);
+		$(el).prop('checked', !!this.checkedWaypoints[mwpid]);
 		if (!dontsave) {
 			this.saveData();
 		}
@@ -497,10 +513,10 @@ window.plugin.missions = {
 		}
 		var el = document.getElementsByClassName('m-' + mid);
 		var sumel = document.getElementsByClassName('mc-' + mid);
-		if (!this.settings.checkedMissions[mid]) {
-			this.settings.checkedMissions[mid] = true;
+		if (!this.checkedMissions[mid]) {
+			this.checkedMissions[mid] = true;
 			mission.waypoints.forEach(function(waypoint) {
-				if (!this.settings.checkedWaypoints[mid + '-' + waypoint.guid]) {
+				if (!this.checkedWaypoints[mid + '-' + waypoint.guid]) {
 					this.toggleWaypoint(mid, waypoint.guid, true);
 				}
 			}, this);
@@ -508,9 +524,9 @@ window.plugin.missions = {
 			$(sumel).addClass('checked');
 			window.runHooks('missionFinished', { mission: mission });
 		} else {
-			delete this.settings.checkedMissions[mid];
+			delete this.checkedMissions[mid];
 			mission.waypoints.forEach(function(waypoint) {
-				if (this.settings.checkedWaypoints[mid + '-' + waypoint.guid]) {
+				if (this.checkedWaypoints[mid + '-' + waypoint.guid]) {
 					this.toggleWaypoint(mid, waypoint.guid, true);
 				}
 			}, this);
@@ -552,13 +568,24 @@ window.plugin.missions = {
 		this.checkCacheSize();
 		localStorage['plugins-missions-portalcache'] = JSON.stringify(this.cacheByPortalGuid);
 		localStorage['plugins-missions-missioncache'] = JSON.stringify(this.cacheByMissionGuid);
-		localStorage['plugins-missions-settings'] = JSON.stringify(this.settings);
+		localStorage['plugins-missions-checkedMissions'] = JSON.stringify(this.checkedMissions);
+		localStorage['plugins-missions-checkedWaypoints'] = JSON.stringify(this.checkedWaypoints);
 	},
 
 	loadData: function() {
 		this.cacheByPortalGuid = JSON.parse(localStorage['plugins-missions-portalcache'] || '{}');
 		this.cacheByMissionGuid = JSON.parse(localStorage['plugins-missions-missioncache'] || '{}');
-		this.settings = JSON.parse(localStorage['plugins-missions-settings'] || '{}');
+		
+		if("plugins-missions-checkedMissions" in localStorage) {
+			this.checkedMissions = JSON.parse(localStorage['plugins-missions-checkedMissions'] || '{}');
+			this.checkedWaypoints = JSON.parse(localStorage['plugins-missions-checkedWaypoints'] || '{}');
+		} else if("plugins-missions-settings" in localStorage) {
+			var settings = JSON.parse(localStorage['plugins-missions-settings'] || '{}');
+			this.checkedMissions = settings.checkedMissions;
+			this.checkedWaypoints = settings.checkedWaypoints;
+			this.saveData();
+			delete localStorage['plugins-missions-settings'];
+		}
 	},
 
 	checkCacheSize: function() {
@@ -627,7 +654,8 @@ window.plugin.missions = {
 			color: '#222',
 			opacity: 1,
 			weight: 2,
-			clickable: false
+			clickable: false,
+			dashArray: (mission.typeNum == 2 /* non-sequential */ ? '1,5' : undefined),
 		});
 		this.missionLayer.addLayer(line);
 		markers.push(line);
@@ -684,11 +712,11 @@ window.plugin.missions = {
 
 		this.loadData();
 
-		if (!this.settings.checkedWaypoints) {
-			this.settings.checkedWaypoints = {};
+		if (!this.checkedWaypoints) {
+			this.checkedWaypoints = {};
 		}
-		if (!this.settings.checkedMissions) {
-			this.settings.checkedMissions = {};
+		if (!this.checkedMissions) {
+			this.checkedMissions = {};
 		}
 
 		$('<style>').prop('type', 'text/css').html('@@INCLUDESTRING:plugins/missions.css@@').appendTo('head');
@@ -731,6 +759,12 @@ window.plugin.missions = {
 		window.pluginCreateHook('portalMissionsLoaded');
 		window.pluginCreateHook('missionFinished');
 		window.pluginCreateHook('waypointFinished');
+
+		var match = location.pathname.match(/\/mission\/([0-9a-z.]+)/);
+		if(match && match[1]) {
+			var mid = match[1];
+			this.openMission(mid);
+		}
 	}
 };
 
