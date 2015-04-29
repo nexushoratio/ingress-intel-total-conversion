@@ -2,7 +2,7 @@
 // @id             iitc-plugin-missions@jonatkins
 // @name           IITC plugin: Missions
 // @category       Info
-// @version        0.0.2.@@DATETIMEVERSION@@
+// @version        0.1.1.@@DATETIMEVERSION@@
 // @namespace      https://github.com/jonatkins/ingress-intel-total-conversion
 // @updateURL      @@UPDATEURL@@
 // @downloadURL    @@DOWNLOADURL@@
@@ -33,7 +33,7 @@ var decodeWaypoint = function(data) {
 		objectiveNum: data[4],
 		objective: [null, 'Hack this Portal', 'Capture or Upgrade Portal', 'Create Link from Portal', 'Create Field from Portal', 'Install a Mod on this Portal', 'Take a Photo', 'View this Field Trip Waypoint', 'Enter the Passphrase'][data[4]],
 	};
-	if (result.typeNum === 1) {
+	if (result.typeNum === 1 && data[5]) {
 		result.portal = window.decodeArray.portalSummary(data[5]);
 		// Portal waypoints have the same guid as the respective portal.
 		result.portal.guid = result.guid;
@@ -78,6 +78,9 @@ window.plugin.missions = {
 	missionCacheTime: 3 * 24 * 3600 * 1E3,
 	// 3 weeks.
 	portalMissionsCacheTime: 21 * 24 * 3600 * 1E3,
+
+	SYNC_DELAY: 5000,
+	enableSync: false,
 
 	missionTypeImages: [
 		'@@INCLUDEIMAGE:images/mission-type-unknown.png@@',
@@ -135,23 +138,60 @@ window.plugin.missions = {
 	showMissionDialog: function(mission) {
 		var me = this;
 		var markers = this.highlightMissionPortals(mission);
-		dialog({
-			id: 'plugin-mission-details-' + mission.guid.replace(/\./g, '_') /* dots irritate the dialog framework */,
-			title: mission.title,
-			height: 'auto',
-			html: this.renderMission(mission),
-			width: '450px',
-			closeCallback: function() {
-				me.unhighlightMissionPortals(markers);
-			},
-			collapseCallback: this.collapseFix,
-			expandCallback: this.collapseFix,
-		}).dialog('option', 'buttons', {
-			'Zoom to mission': function() {
-				me.zoomToMission(mission);
-			},
-			'OK': function() { $(this).dialog('close'); },
-		});
+		var content = this.renderMission(mission);
+		var id = mission.guid.replace(/\./g, '_'); // dots irritate the dialog framework and are not allowed in HTML IDs
+		
+		if(useAndroidPanes()) {
+			if(this.tabHeaders[id]) {
+				this.tabHeaders[id].parentNode.querySelector('.ui-icon-close').click();
+			}
+			
+			var li = this.tabBar.appendChild(document.createElement('li'));
+			var a = li.appendChild(document.createElement('a'));
+			a.textContent = mission.title;
+			a.href = '#mission_pane_'+id;
+			this.tabHeaders[id] = a;
+			var span = li.appendChild(document.createElement('span'));
+			span.className = 'ui-icon ui-icon-close';
+			span.textContent = 'Close mission';
+			span.addEventListener('click', function() {
+				this.unhighlightMissionPortals(markers);
+				li.parentNode.removeChild(li);
+				content.parentNode.removeChild(content);
+				delete this.tabHeaders[id];
+				$(this.tabs)
+					.tabs('refresh')
+					.find('.ui-tabs-nav')
+						.sortable('refresh');
+			}.bind(this), false);
+			
+			this.tabs.appendChild(content);
+			content.id = 'mission_pane_'+id;
+			var tabs = $(this.tabs);
+			tabs.tabs('refresh');
+			tabs.find('.ui-tabs-nav').sortable('refresh');
+			tabs.tabs('option','active', -1);
+			if(window.isSmartphone())
+				show('plugin-missions');
+		} else {
+			dialog({
+				id: 'plugin-mission-details-' + id,
+				title: mission.title,
+				height: 'auto',
+				html: content,
+				width: '450px',
+				closeCallback: function() {
+					me.unhighlightMissionPortals(markers);
+				},
+				collapseCallback: this.collapseFix,
+				expandCallback: this.collapseFix,
+			}).dialog('option', 'buttons', {
+				'Zoom to mission': function() {
+					me.zoomToMission(mission);
+				},
+				'OK': function() { $(this).dialog('close'); },
+			});
+		}
 	},
 
 	showMissionListDialog: function(missions) {
@@ -225,13 +265,13 @@ window.plugin.missions = {
 				return;
 			}
 
-			window.runHooks('portalMissionsLoaded', { missions: missions, portalguid: guid });
+			window.runHooks('plugin-missions-on-portal-loaded', { missions: missions, portalguid: guid });
 
 			me.cacheByPortalGuid[guid] = {
 				time: Date.now(),
 				data: missions
 			};
-			me.saveData();
+			me.storeCache();
 			callback(missions);
 		}, function(error) {
 			console.log('Error loading portal missions', arguments);
@@ -259,17 +299,17 @@ window.plugin.missions = {
 				return;
 			}
 
-			window.runHooks('missionLoaded', { mission: mission });
+			window.runHooks('plugin-missions-loaded-mission', { mission: mission });
 
 			me.cacheByMissionGuid[guid] = {
 				time: Date.now(),
 				data: mission
 			};
-			me.saveData();
+			me.storeCache();
 
 			callback(mission);
 		}, function() {
-			console.error('Error loading mission data: ' + guid + ", " + Array.prototype.slice.call(arguments));
+			console.error('Error loading mission data: ' + guid + ', ' + Array.prototype.slice.call(arguments));
 			
 			if (errorcallback) {
 				errorcallback(error);
@@ -292,7 +332,8 @@ window.plugin.missions = {
 		var checked = this.checkedMissions[mission.guid];
 
 		var container = document.createElement('div');
-		container.className = 'plugin-mission-summary mc-' + mission.guid;
+		container.className = 'plugin-mission-summary';
+		container.dataset['mission_mid'] = mission.guid;
 		if(checked)
 			container.classList.add('checked');
 		
@@ -317,6 +358,32 @@ window.plugin.missions = {
 			span.className = 'nickname ' + (cachedMission.authorTeam === 'R' ? 'res' : 'enl')
 			span.textContent = cachedMission.authorNickname;
 			
+			var len = cachedMission.waypoints.filter(function(waypoint) {
+				return !!waypoint.portal;
+			}).map(function(waypoint) {
+				return L.latLng(waypoint.portal.latE6/1E6, waypoint.portal.lngE6/1E6);
+			}).map(function(latlng1, i, latlngs) {
+				if(i == 0) return 0;
+				var latlng2 = latlngs[i - 1];
+				return latlng1.distanceTo(latlng2);
+			}).reduce(function(a, b) {
+				return a + b;
+			});
+			
+			if(len > 0) {
+				if(len > 1000)
+					len = Math.round(len / 100) / 10 + 'km';
+				else
+					len = Math.round(len * 10) / 10 + 'm';
+				
+				var infoLength = container.appendChild(document.createElement('span'));
+				infoLength.className = 'plugin-mission-info length help';
+				infoLength.title = 'Length of this mission.\n\nNOTE: The actual distance required to cover may vary depending on several factors!';
+				infoLength.textContent = len;
+				img = infoLength.insertBefore(document.createElement('img'), infoLength.firstChild);
+				img.src = '@@INCLUDEIMAGE:images/mission-length.png@@';
+			}
+			
 			if(window.plugin.distanceToPortal && window.plugin.distanceToPortal.currentLoc) {
 				var infoDistance = container.appendChild(document.createElement('span'));
 				infoDistance.className = 'plugin-mission-info distance help';
@@ -331,31 +398,34 @@ window.plugin.missions = {
 		container.appendChild(document.createElement('br'));
 		
 		var infoTime = container.appendChild(document.createElement('span'));
-		infoTime.className = 'plugin-mission-info time';
+		infoTime.className = 'plugin-mission-info time help';
+		infoTime.title = 'Typical duration';
 		infoTime.textContent = timeToRemaining((mission.medianCompletionTimeMs / 1000) | 0) + ' ';
 		img = infoTime.insertBefore(document.createElement('img'), infoTime.firstChild);
 		img.src = 'https://commondatastorage.googleapis.com/ingress.com/img/tm_icons/time.png';
 		
 		var infoRating = container.appendChild(document.createElement('span'));
-		infoRating.className = 'plugin-mission-info rating';
+		infoRating.className = 'plugin-mission-info rating help';
+		infoRating.title = 'Average rating';
 		infoRating.textContent = (((mission.ratingE6 / 100) | 0) / 100) + '%' + ' ';
 		img = infoRating.insertBefore(document.createElement('img'), infoRating.firstChild);
 		img.src = 'https://commondatastorage.googleapis.com/ingress.com/img/tm_icons/like.png';
 		
 		if (cachedMission) {
 			var infoPlayers = container.appendChild(document.createElement('span'));
-			infoPlayers.className = 'plugin-mission-info players';
+			infoPlayers.className = 'plugin-mission-info players help';
+			infoPlayers.title = 'Unique players who have completed this mission';
 			infoPlayers.textContent = cachedMission.numUniqueCompletedPlayers + ' ';
 			img = infoPlayers.insertBefore(document.createElement('img'), infoPlayers.firstChild);
 			img.src = 'https://commondatastorage.googleapis.com/ingress.com/img/tm_icons/players.png';
 			
 			var infoWaypoints = container.appendChild(document.createElement('span'));
-			infoWaypoints.className = 'plugin-mission-info waypoints';
+			infoWaypoints.className = 'plugin-mission-info waypoints help';
+			infoWaypoints.title = (cachedMission.type ? cachedMission.type + ' mission' : 'Unknown mission type')
+			                    + ' with ' + cachedMission.waypoints.length + ' waypoints';
 			infoWaypoints.textContent = cachedMission.waypoints.length + ' ';
 			img = infoWaypoints.insertBefore(document.createElement('img'), infoWaypoints.firstChild);
 			img.src = this.missionTypeImages[cachedMission.typeNum] || this.missionTypeImages[0];
-			img.title = cachedMission.type || 'Unknown mission type';
-			img.className = 'help';
 		}
 		
 		return container;
@@ -433,15 +503,23 @@ window.plugin.missions = {
 			
 			title.href = perma;
 			title.addEventListener('click', function(ev) {
+				if(window.isSmartphone())
+					show('map');
 				selectPortalByLatLng(lat, lng);
 				ev.preventDefault();
 				return false;
 			}, false);
 			title.addEventListener('dblclick', function(ev) {
+				if(window.isSmartphone())
+					show('map');
 				zoomToAndShowPortal(waypoint.portal.guid, [lat, lng]);
 				ev.preventDefault();
 				return false;
 			}, false);
+		} else if(waypoint.typeNum === 1) {
+			// if typeNum === 1 but portal is undefined, this waypoint is a deleted portal.
+			var title = container.appendChild(document.createElement('span'));
+			container.classList.add('unavailable');
 		} else {
 			var title = container.appendChild(document.createElement('span'));
 		}
@@ -454,7 +532,7 @@ window.plugin.missions = {
 		else
 			title.textContent = 'Unknown';
 		
-		var mwpid = mission.guid + '-' + waypoint.guid;
+		var mwpid = mission.guid + '-' + index + '-' + waypoint.guid;
 		var checked = this.checkedWaypoints[mwpid];
 		
 		var label = container.appendChild(document.createElement('label'));
@@ -462,9 +540,9 @@ window.plugin.missions = {
 		var checkbox = label.appendChild(document.createElement('input'));
 		checkbox.type = 'checkbox';
 		checkbox.addEventListener('change', function() {
-			plugin.missions.toggleWaypoint(mission.guid, waypoint.guid);
+			plugin.missions.toggleWaypoint(mission.guid, mwpid);
 		}, false);
-		checkbox.className = 'wp-' + mwpid;
+		checkbox.dataset['mission_mwpid'] = mwpid;
 		
 		var objective = label.appendChild(document.createElement('span'));
 		objective.textContent = waypoint.objective ? waypoint.objective : '?';
@@ -491,51 +569,66 @@ window.plugin.missions = {
 		return container;
 	},
 
-	toggleWaypoint: function(mid, wpid, dontsave) {
-		var mwpid = mid + '-' + wpid;
-		var el = document.getElementsByClassName('wp-' + mwpid);
-		if(!this.checkedWaypoints[mwpid]) {
-			this.checkedWaypoints[mwpid] = true;
-			window.runHooks('waypointFinished', { mission: this.getMissionCache(mid), waypointguid: wpid });
-		} else {
+	toggleWaypoint: function(mid, mwpid, dontsave) {
+		if(this.checkedWaypoints[mwpid])
 			delete this.checkedWaypoints[mwpid];
-		}
-		$(el).prop('checked', !!this.checkedWaypoints[mwpid]);
+		else
+			this.checkedWaypoints[mwpid] = true;
+		
+		window.runHooks('plugin-missions-waypoint-changed', { mwpid: mwpid, });
 		if (!dontsave) {
-			this.saveData();
+			this.checkedWaypointsUpdateQueue[mwpid] = true;
+			this.storeLocal('checkedWaypoints');
+			this.storeLocal('checkedWaypointsUpdateQueue');
+			this.syncQueue();
 		}
 	},
-
+	
+	onWaypointChanged: function(data) {
+		var mwpid = data.mwpid;
+		
+		var checked = !!this.checkedWaypoints[mwpid];
+		
+		$('[data-mission_mwpid="'+mwpid+'"]').prop('checked', checked);
+	},
+	
+	onWaypointsRefreshed: function() {
+		$('[data-mission_mwpid]').each(function(i, element) {
+			var mwpid = element.dataset['mission_mwpid'];
+			var checked = !!this.checkedWaypoints[mwpid];
+			element.checked = checked;
+		});
+	},
+	
 	toggleMission: function(mid) {
-		var mission = this.getMissionCache(mid);
-		if (!mission) {
-			return;
-		}
-		var el = document.getElementsByClassName('m-' + mid);
-		var sumel = document.getElementsByClassName('mc-' + mid);
-		if (!this.checkedMissions[mid]) {
-			this.checkedMissions[mid] = true;
-			mission.waypoints.forEach(function(waypoint) {
-				if (!this.checkedWaypoints[mid + '-' + waypoint.guid]) {
-					this.toggleWaypoint(mid, waypoint.guid, true);
-				}
-			}, this);
-			$(el).show();
-			$(sumel).addClass('checked');
-			window.runHooks('missionFinished', { mission: mission });
-		} else {
+		if(this.checkedMissions[mid])
 			delete this.checkedMissions[mid];
-			mission.waypoints.forEach(function(waypoint) {
-				if (this.checkedWaypoints[mid + '-' + waypoint.guid]) {
-					this.toggleWaypoint(mid, waypoint.guid, true);
-				}
-			}, this);
-			$(el).hide();
-			$(sumel).removeClass('checked');
-		}
-		this.saveData();
+		else
+			this.checkedMissions[mid] = true;
+		
+		window.runHooks('plugin-missions-mission-changed', { mid: mid, });
+		this.checkedMissionsUpdateQueue[mid] = true;
+		this.storeLocal('checkedMissions');
+		this.storeLocal('checkedMissionsUpdateQueue');
+		this.syncQueue();
 	},
-
+	
+	onMissionChanged: function(data) {
+		var mid = data.mid;
+		
+		var checked = !!this.checkedMissions[mid];
+		
+		$('[data-mission_mid="'+mid+'"]').toggleClass('checked', checked);
+	},
+	
+	onMissionsRefreshed: function() {
+		$('[data-mission_mid]').each(function(i, element) {
+			var mid = element.dataset['mission_mid'];
+			var checked = !!this.checkedMissions[mid];
+			$(element).toggleClass('checked', checked);
+		});
+	},
+	
 	getMissionCache: function(guid, updatePortals) {
 		if (this.cacheByMissionGuid[guid]) {
 			var cache = this.cacheByMissionGuid[guid];
@@ -564,30 +657,39 @@ window.plugin.missions = {
 		return null;
 	},
 
-	saveData: function() {
+	storeCache: function() {
 		this.checkCacheSize();
 		localStorage['plugins-missions-portalcache'] = JSON.stringify(this.cacheByPortalGuid);
 		localStorage['plugins-missions-missioncache'] = JSON.stringify(this.cacheByMissionGuid);
-		localStorage['plugins-missions-checkedMissions'] = JSON.stringify(this.checkedMissions);
-		localStorage['plugins-missions-checkedWaypoints'] = JSON.stringify(this.checkedWaypoints);
 	},
-
+	
+	storeLocal: function(key) {
+		localStorage['plugins-missions-' + key] = JSON.stringify(this[key]);
+	},
+	
 	loadData: function() {
 		this.cacheByPortalGuid = JSON.parse(localStorage['plugins-missions-portalcache'] || '{}');
 		this.cacheByMissionGuid = JSON.parse(localStorage['plugins-missions-missioncache'] || '{}');
 		
-		if("plugins-missions-checkedMissions" in localStorage) {
-			this.checkedMissions = JSON.parse(localStorage['plugins-missions-checkedMissions'] || '{}');
-			this.checkedWaypoints = JSON.parse(localStorage['plugins-missions-checkedWaypoints'] || '{}');
-		} else if("plugins-missions-settings" in localStorage) {
+		if('plugins-missions-settings' in localStorage) {
 			var settings = JSON.parse(localStorage['plugins-missions-settings'] || '{}');
-			this.checkedMissions = settings.checkedMissions;
-			this.checkedWaypoints = settings.checkedWaypoints;
-			this.saveData();
+			localStorage['plugins-missions-checkedMissions'] = JSON.stringify(settings.checkedMissions);
+			localStorage['plugins-missions-checkedWaypoints'] = JSON.stringify(settings.checkedWaypoints);
 			delete localStorage['plugins-missions-settings'];
 		}
+		
+		this.loadLocal('checkedMissions');
+		this.loadLocal('checkedMissionsUpdateQueue');
+		this.loadLocal('checkedMissionsUpdatingQueue');
+		this.loadLocal('checkedWaypoints');
+		this.loadLocal('checkedWaypointsUpdateQueue');
+		this.loadLocal('checkedWaypointsUpdatingQueue');
 	},
-
+	
+	loadLocal: function(key) {
+		this[key] = JSON.parse(localStorage['plugins-missions-' + key] || '{}');
+	},
+	
 	checkCacheSize: function() {
 		if (JSON.stringify(this.cacheByPortalGuid).length > 1e6) { // 1 MB not MiB ;)
 			this.cleanupPortalCache();
@@ -703,6 +805,84 @@ window.plugin.missions = {
 		}
 	},
 
+	// sync the queue, but delay the actual sync to group a few updates in a single request
+	syncQueue: function() {
+		if(!this.enableSync) return;
+
+		clearTimeout(this.syncTimer);
+
+		this.syncTimer = setTimeout(function() {
+			this.syncTimer = null;
+
+			$.extend(this.checkedMissionsUpdatingQueue, this.checkedMissionsUpdateQueue);
+			this.checkedMissionsUpdateQueue = {};
+			this.storeLocal('checkedMissionsUpdatingQueue');
+			this.storeLocal('checkedMissionsUpdateQueue');
+			plugin.sync.updateMap('missions', 'checkedMissions', Object.keys(this.checkedMissionsUpdatingQueue));
+
+			$.extend(this.checkedWaypointsUpdatingQueue, this.checkedWaypointsUpdateQueue);
+			this.checkedWaypointsUpdateQueue = {};
+			this.storeLocal('checkedWaypointsUpdatingQueue');
+			this.storeLocal('checkedWaypointsUpdateQueue');
+			plugin.sync.updateMap('missions', 'checkedWaypoints', Object.keys(this.checkedWaypointsUpdatingQueue));
+
+		}.bind(this), this.SYNC_DELAY);
+	},
+
+	// called after IITC and all plugin loaded
+	registerFieldForSyncing: function() {
+		if(!window.plugin.sync) return;
+		window.plugin.sync.registerMapForSync('missions', 'checkedMissions', this.syncCallback.bind(this), this.syncInitialed.bind(this));
+		window.plugin.sync.registerMapForSync('missions', 'checkedWaypoints', this.syncCallback.bind(this), this.syncInitialed.bind(this));
+	},
+
+	// called after local or remote change uploaded
+	syncCallback: function(pluginName, fieldName, e, fullUpdated) {
+		this.storeLocal(fieldName);
+		// All data is replaced if another client updates the data while this client was offline,
+		// fire a complete refresh
+		if(fullUpdated) {
+			if(fieldName === 'checkedMissions') {
+				window.runHooks('plugin-missions-missions-refreshed');
+			} else if(fieldName === 'checkedWaypoints') {
+				window.runHooks('plugin-missions-waypoints-refreshed');
+			}
+			return;
+		}
+
+		if(!e) return;
+		if(e.isLocal) {
+			// Update pushed successfully, remove it from updatingQueue
+			delete this[fieldName + 'UpdatingQueue'][e.property];
+		} else {
+			// Remote update
+			delete this[fieldName + 'UpdateQueue'][e.property]
+			this.storeLocal(fieldName + 'UpdateQueue');
+			
+			if(fieldName === 'checkedMissions') {
+				window.runHooks('plugin-missions-mission-changed', { mid: e.property, });
+			} else if(fieldName === 'checkedWaypoints') {
+				window.runHooks('plugin-missions-waypoint-changed', { mwpid: e.property, });
+			}
+		}
+	},
+
+	// syncing of the field is initialed, upload all queued update
+	syncInitialed: function(pluginName, fieldName) {
+		this.enableSync = true;
+		if(Object.keys(this[fieldName + 'UpdateQueue']).length > 0) {
+			this.syncQueue();
+		}
+	},
+
+	onPaneChanged: function(pane) {
+		if(pane == 'plugin-missions') {
+			document.body.appendChild(this.mobilePane);
+		} else if(this.mobilePane.parentNode) {
+			this.mobilePane.parentNode.removeChild(this.mobilePane);
+		}
+	},
+
 	setup: function() {
 		this.cacheByPortalGuid = {};
 		this.cacheByMissionGuid = {};
@@ -712,15 +892,33 @@ window.plugin.missions = {
 
 		this.loadData();
 
-		if (!this.checkedWaypoints) {
-			this.checkedWaypoints = {};
-		}
-		if (!this.checkedMissions) {
-			this.checkedMissions = {};
-		}
-
 		$('<style>').prop('type', 'text/css').html('@@INCLUDESTRING:plugins/missions.css@@').appendTo('head');
 		$('#toolbox').append('<a tabindex="0" onclick="plugin.missions.openTopMissions();">Missions in view</a>');
+
+		if(window.useAndroidPanes()) {
+			this.mobilePane = document.createElement('div');
+			this.mobilePane.className = 'plugin-mission-pane';
+			
+			var button = this.mobilePane.appendChild(document.createElement('button'));
+			button.textContent = 'Missions in view';
+			button.addEventListener('click', function(){ this.openTopMissions(); }.bind(this), false);
+			
+			this.tabs = this.mobilePane.appendChild(document.createElement('div'));
+			this.tabBar = this.tabs.appendChild(document.createElement('ul'));
+			this.tabHeaders = {};
+			
+			$(this.tabs)
+				.tabs()
+				.find('.ui-tabs-nav').sortable({
+					axis: 'x',
+					stop: function() {
+						$(this.tabs).tabs('refresh');
+					},
+				});
+			
+			android.addPane('plugin-missions', 'Missions', 'ic_missions');
+			addHook('paneChanged', this.onPaneChanged.bind(this));
+		}
 
 		// window.addPortalHighlighter('Mission start point', this.highlight.bind(this));
 		window.addHook('portalSelected', this.onPortalSelected.bind(this));
@@ -755,10 +953,18 @@ window.plugin.missions = {
 		window.addLayerGroup('Mission start portals', this.missionStartLayer, false);
 		window.addLayerGroup('Mission portals', this.missionLayer, true);
 
-		window.pluginCreateHook('missionLoaded');
-		window.pluginCreateHook('portalMissionsLoaded');
-		window.pluginCreateHook('missionFinished');
-		window.pluginCreateHook('waypointFinished');
+		window.pluginCreateHook('plugin-missions-loaded-mission');
+		window.pluginCreateHook('plugin-missions-on-portal-loaded');
+		window.pluginCreateHook('plugin-missions-mission-changed');
+		window.pluginCreateHook('plugin-missions-missions-refreshed');
+		window.pluginCreateHook('plugin-missions-waypoint-changed');
+		window.pluginCreateHook('plugin-missions-waypoints-refreshed');
+
+		window.addHook('plugin-missions-mission-changed',     this.onMissionChanged.bind(this));
+		window.addHook('plugin-missions-missions-refreshed',  this.onMissionsRefreshed.bind(this));
+		window.addHook('plugin-missions-waypoint-changed',    this.onWaypointChanged.bind(this));
+		window.addHook('plugin-missions-waypoints-refreshed', this.onWaypointsRefreshed.bind(this));
+		window.addHook('iitcLoaded', this.registerFieldForSyncing.bind(this));
 
 		var match = location.pathname.match(/\/mission\/([0-9a-z.]+)/);
 		if(match && match[1]) {
