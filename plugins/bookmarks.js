@@ -799,6 +799,43 @@ window.plugin.bookmarks.addPortalBookmark = function (guid, latlng, label) {
     }
   }
 
+  window.plugin.bookmarks.optBookmarkVisible = function(command) {
+    // Being a bulk operation, this explicitly avoids hooks that happen on a
+    // per portal basis.  Instead, it uses the same one ran when bookmarks are
+    // imported.
+    console.log('BOOKMARKS: visible ' + command);
+    const displayBounds = window.map.getBounds();
+    const folders = window.plugin.bookmarks.bkmrksObj['portals'];
+
+    const counts = {skip: 0, add: 0, delete: 0};
+    let visible = 0;
+
+    for (const [guid, marker] of Object.entries(window.portals)) {
+      // The check for _map restricts to portals actually shown currently
+      if (displayBounds.contains(marker.getLatLng()) && marker._map) {
+        visible += 1;
+
+        const bkmrkData = window.plugin.bookmarks.findByGuid(guid);
+        if (bkmrkData && ['off', 'toggle'].includes(command)) {
+          delete folders[bkmrkData['id_folder']]['bkmrk'][bkmrkData['id_bookmark']];    counts.delete += 1;
+        } else if (!bkmrkData && ['on', 'toggle'].includes(command)) {
+          window.plugin.bookmarks.addPortalBookmarkByMarker(marker, false);
+          counts.add += 1;
+        } else {
+          counts.skip += 1;
+        }
+      }
+    }
+
+    if (counts.add || counts.delete) {
+      window.plugin.bookmarks.saveStorage();
+      window.plugin.bookmarks.refreshBkmrks();
+      window.runHooks('pluginBkmrksEdit',
+                      {target: 'all', action: 'import'});
+    }
+    console.log('BOOKMARKS:', `visible: ${visible}`, 'summary:', counts);
+  }
+
   window.plugin.bookmarks.dialogLoadListFolders = function(idBox, clickAction, showOthersF, scanType/*0 = maps&portals; 1 = maps; 2 = portals*/) {
     var list = JSON.parse(localStorage[window.plugin.bookmarks.KEY_STORAGE]);
     var listHTML = '';
@@ -1308,6 +1345,10 @@ window.plugin.bookmarks.addPortalBookmark = function (guid, latlng, label) {
       actions += '<a onclick="window.plugin.bookmarks.optBox(\'save\');return false;">Save box position</a>';
       actions += '<a onclick="window.plugin.bookmarks.optBox(\'reset\');return false;">Reset box position</a>';
     }
+    actions += '<a onclick="window.plugin.bookmarks.optBookmarkVisible(\'on\');return false;">Star all visible</a>';
+    actions += '<a onclick="window.plugin.bookmarks.optBookmarkVisible(\'off\');return false;">Unstar all visible</a>';
+    actions += '<a onclick="window.plugin.bookmarks.optBookmarkVisible(\'toggle\');return false;">Toggle star for all visible</a>';
+
     plugin.bookmarks.htmlSetbox = '<div id="bkmrksSetbox">' + actions + '</div>';
   }
 
