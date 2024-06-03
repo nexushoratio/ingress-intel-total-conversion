@@ -569,6 +569,20 @@ window.plugin.explore.use_drawtools = function() {
   }
 }
 
+/** Triggered from a command button. */
+window.plugin.explore.use_bookmarks = function() {
+  const state = window.plugin.explore.state;
+  const group = L.featureGroup(
+    window.plugin.bookmarks.starLayerGroup.getLayers());
+  const bounds = group.getBounds();
+  if (bounds.isValid()) {
+    state.data.boundary = bounds;
+    state.status = 'Bounds set from Bookmarks';
+  } else {
+    state.status = 'Setting from Bookmarks failed (none saved?)';
+  }
+}
+
 /** Opens the dialog/dashboard. */
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
@@ -584,6 +598,12 @@ window.plugin.explore.central = function() {
     commands.push({
       label: 'Set boundary from DrawTools',
       func: explore.use_drawtools,
+    });
+  }
+  if (window.plugin.bookmarks) {
+    commands.push({
+      label: 'Set boundary from Bookmarks',
+      func: explore.use_bookmarks,
     });
   }
   const html = `<div class='button-menu'>
