@@ -233,6 +233,17 @@ window.plugin.explore.State = class {
     return this.#formatDate(this.#stopTime);
   }
 
+  /** @type {string} - Generic status message for the dashboard. */
+  get status() {
+    return this.#status || 'No status';
+  }
+
+  /** @param {string} val - Generic status message for the dashboard. */
+  set status(val) {
+    this.#status = val;
+    this.#populateDialog();
+  }
+
   /** @type {number} - Current number of portals known about. */
   get total() {
     return this.data.portals.size;
@@ -257,10 +268,13 @@ window.plugin.explore.State = class {
         for (const [guid, marker] of Object.entries(window.portals)) {
           if (bounds.contains(marker.getLatLng())) {
             this.#counted += 1;
-            if (!marker.options.data.title) {
+            if (marker.options.data.title) {
+              this.data.addPortal(marker);
+            } else {
               console.log('placeholder:', marker.options.data);
+              this.stop();
+              this.status = 'Saw placeholder (bug?)';
             }
-            this.data.addPortal(marker);
           }
         }
         this.#populateDialog();
@@ -271,7 +285,7 @@ window.plugin.explore.State = class {
         this.#nextDest();
         window.idleReset();
       } else {
-        console.log('wrong zoom or location');
+        this.status = 'Saw bad zoom or location, reset';
         this.#moveTo(this.#startDest());
       }
     }
@@ -300,6 +314,7 @@ window.plugin.explore.State = class {
   /** Start exploring the current bounds. */
   start() {
     if (!this.#exploring) {
+      this.status = 'Started';
       this.#exploring = true;
       const zoom = window.map.getZoom();
       if (window.mapDataRequest.status.short === 'done'
@@ -317,6 +332,7 @@ window.plugin.explore.State = class {
   /** Stop the current exploration. */
   stop() {
     if (this.exploring) {
+      this.status = 'Stopped';
       this.#stopTime = new Date();
     }
     this.#exploring = false;
@@ -351,6 +367,7 @@ window.plugin.explore.State = class {
     'Total portal count': 'total',
     'Start time': 'startTime',
     'Stop time': 'stopTime',
+    'Status': 'status',
   };
   #exploring = false;
   #iteration = 0;
@@ -358,6 +375,7 @@ window.plugin.explore.State = class {
   #rect
   #startTime = null;
   #stopTime = null;
+  #status = null;
   #visible = false;
 
   /**
@@ -391,32 +409,32 @@ window.plugin.explore.State = class {
 
   /** Try to pan east, otherwise move southwest. */
   #goEast() {
-    console.log('Will move due east');
     const test = new L.LatLng(window.map.getCenter().lat,
                               this.data.boundary.getEast());
     if (window.map.getBounds().contains(test)) {
-      console.log('we saw the eastern border');
+      this.status = 'Saw the eastern border';
       this.#goSouthWest();
     } else {
       const mapSize = window.map.getSize();
       const offset = new L.Point(mapSize.x * 95 / 100, 0);
       window.map.panBy(offset, {animate: false});
+      this.status = 'Moved due east';
     }
   }
 
   /** Move southwest, like an old typewriter doing a carriage return. */
   #goSouthWest() {
-    console.log('Will move southwest');
     const test = new L.LatLng(this.data.boundary.getSouth(),
                               window.map.getCenter().lng);
     if (window.map.getBounds().contains(test)) {
-      console.log('we saw the southern border');
+      this.status = 'Saw the southern border';
       this.stop();
       this.data.current = null;
     } else {
       const dest = new L.LatLng(window.map.getBounds().getSouth(),
                                 this.data.boundary.getWest());
       this.#moveTo(dest);
+      this.status = 'Moved southwest';
     }
   }
 
@@ -484,21 +502,19 @@ window.plugin.explore.dataRefreshed = function() {
   const state = window.plugin.explore.state;
   if (state.exploring) {
     if (state.delay) {
-      console.log('Map moved during processing');
+      status.status = 'Map moved during process; stop that!';
       return;
     }
     const [low, high] = window.plugin.explore.DELAY_RANGE;
     state.delay = Math.floor(low + Math.random() * (high - low));
-    console.log(`Hey, we are exploring!  Waiting for ${state.delay} ms.`);
+    state.status = `Waiting for ${state.delay} ms`;
     setTimeout(window.plugin.explore.processMap, state.delay);
-  } else {
-    console.log('Darn, not exploring');
   }
 }
 
 /** Triggered from a command button. */
 window.plugin.explore.tbd = function() {
-  console.log('Command TBD');
+  window.plugin.explore.state.status = 'Command not implemented';
 }
 
 /** Triggered from a command button. */
@@ -529,12 +545,16 @@ window.plugin.explore.refresh = function() {
 
 /** Triggered from a command button. */
 window.plugin.explore.use_view = function() {
-  window.plugin.explore.state.data.boundary = map.getBounds();
+  const state = window.plugin.explore.state;
+  state.data.boundary = map.getBounds();
+  state.status = 'Bounds set to current view';
 }
 
 /** Triggered from a command button. */
 window.plugin.explore.extend_view = function() {
-  window.plugin.explore.state.data.extendBoundary(map.getBounds());
+  const state = window.plugin.explore.state;
+  state.data.extendBoundary(map.getBounds());
+  state.status = 'Bounds now includes current view';
 }
 
 /** Opens the dialog/dashboard. */
