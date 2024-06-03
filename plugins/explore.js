@@ -659,6 +659,9 @@ function setup() {
       display: block;
       width: 80%;
       margin: 10px auto;
+      &:hover {
+        text-decoration: underline;
+      }
     }
     .plugin-explore-labels {
       line-height: normal;
