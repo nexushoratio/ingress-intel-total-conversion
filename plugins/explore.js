@@ -546,14 +546,14 @@ window.plugin.explore.refresh = function() {
 /** Triggered from a command button. */
 window.plugin.explore.use_view = function() {
   const state = window.plugin.explore.state;
-  state.data.boundary = map.getBounds();
+  state.data.boundary = window.map.getBounds();
   state.status = 'Bounds set to current view';
 }
 
 /** Triggered from a command button. */
 window.plugin.explore.extend_view = function() {
   const state = window.plugin.explore.state;
-  state.data.extendBoundary(map.getBounds());
+  state.data.extendBoundary(window.map.getBounds());
   state.status = 'Bounds now includes current view';
 }
 
