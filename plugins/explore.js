@@ -346,9 +346,9 @@ window.plugin.explore.State = class {
   #dialog
   #dialogMapping = {
     'Exploring': 'exploring',
-    'Explored': 'iteration',
-    'Screens count': 'counted',
-    'Total count': 'total',
+    'Views explored': 'iteration',
+    'Last view count': 'counted',
+    'Total portal count': 'total',
     'Start time': 'startTime',
     'Stop time': 'stopTime',
   };
