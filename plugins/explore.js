@@ -89,6 +89,12 @@ window.plugin.explore.Data = class {
     this.portals.set(guid, portal);
   }
 
+  /** Clear the portal data. */
+  clearPortals() {
+    this.#portals.clear();
+    this.save();
+  }
+
   /**
    * Light wrapper around {L.LatLngBounds.extend}.
    * @param {L.LatLngBounds} bounds
@@ -230,6 +236,13 @@ window.plugin.explore.State = class {
   /** @type {number} - Current number of portals known about. */
   get total() {
     return this.data.portals.size;
+  }
+
+  /** Clear out the portal data. */
+  clear() {
+    this.stop();
+    this.data.clearPortals();
+    this.#populateDialog();
   }
 
   /** Process the current view of the map. */
@@ -505,6 +518,11 @@ window.plugin.explore.save = function() {
 }
 
 /** Triggered from a command button. */
+window.plugin.explore.clear = function() {
+  window.plugin.explore.state.clear();
+}
+
+/** Triggered from a command button. */
 window.plugin.explore.refresh = function() {
   window.plugin.explore.state.refreshLayers();
 }
@@ -525,7 +543,7 @@ window.plugin.explore.central = function() {
   const commands = [
     {label: 'Toggle Exploring', func: explore.toggle},
     {label: 'Save Exploration', func: explore.save},
-    {label: 'Clear Exploration', func: explore.tbd},
+    {label: 'Clear Exploration', func: explore.clear},
     {label: 'Refresh Explored View', func: explore.refresh},
     {label: 'Set Boundary from View', func: explore.use_view},
     {label: 'Extend Boundary to View', func: explore.extend_view},
