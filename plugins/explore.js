@@ -265,6 +265,25 @@ window.plugin.explore.State = class {
     this.delay = null;
   }
 
+  /** Save portals to a file. */
+  save() {
+    const portals = {};
+    for (const [guid, portal] of this.data.portals.entries()) {
+      portals[guid] = portal;
+    }
+    const data = {
+      portals: {
+        idExplore: {
+          bkmrk: portals,
+          label: 'Explored',
+        }
+      }
+    }
+    window.saveFile(JSON.stringify(data, null, 2),
+                    'IITC-exploration.json',
+                    'application/json');
+  }
+
   /** Start exploring the current bounds. */
   start() {
     if (!this.#exploring) {
@@ -481,6 +500,11 @@ window.plugin.explore.toggle = function() {
 }
 
 /** Triggered from a command button. */
+window.plugin.explore.save = function() {
+  window.plugin.explore.state.save();
+}
+
+/** Triggered from a command button. */
 window.plugin.explore.refresh = function() {
   window.plugin.explore.state.refreshLayers();
 }
@@ -500,7 +524,7 @@ window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
   const commands = [
     {label: 'Toggle Exploring', func: explore.toggle},
-    {label: 'Save Exploration', func: explore.tbd},
+    {label: 'Save Exploration', func: explore.save},
     {label: 'Clear Exploration', func: explore.tbd},
     {label: 'Refresh Explored View', func: explore.refresh},
     {label: 'Set Boundary from View', func: explore.use_view},
