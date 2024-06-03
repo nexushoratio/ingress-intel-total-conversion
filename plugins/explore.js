@@ -557,6 +557,18 @@ window.plugin.explore.extend_view = function() {
   state.status = 'Bounds now includes current view';
 }
 
+/** Triggered from a command button. */
+window.plugin.explore.use_drawtools = function() {
+  const state = window.plugin.explore.state;
+  const bounds = window.plugin.drawTools.drawnItems.getBounds();
+  if (bounds.isValid()) {
+    state.data.boundary = bounds;
+    state.status = 'Bounds set from DrawTools';
+  } else {
+    state.status = 'Setting from DrawTools failed (no drawing?)';
+  }
+}
+
 /** Opens the dialog/dashboard. */
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
@@ -568,6 +580,12 @@ window.plugin.explore.central = function() {
     {label: 'Set Boundary from View', func: explore.use_view},
     {label: 'Extend Boundary to View', func: explore.extend_view},
   ];
+  if (window.plugin.drawTools) {
+    commands.push({
+      label: 'Set boundary from DrawTools',
+      func: explore.use_drawtools,
+    });
+  }
   const html = `<div class='button-menu'>
     </div>`;
   const dia = dialog({
