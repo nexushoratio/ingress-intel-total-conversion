@@ -427,9 +427,9 @@ window.plugin.explore.State = class {
     const test = new L.LatLng(this.data.boundary.getSouth(),
                               window.map.getCenter().lng);
     if (window.map.getBounds().contains(test)) {
-      this.status = 'Saw the southern border';
       this.stop();
       this.data.current = null;
+      this.status = 'Saw the southern border';
     } else {
       const dest = new L.LatLng(window.map.getBounds().getSouth(),
                                 this.data.boundary.getWest());
