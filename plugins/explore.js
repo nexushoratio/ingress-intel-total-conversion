@@ -434,6 +434,9 @@ window.plugin.explore.State = class {
       const dest = new L.LatLng(window.map.getBounds().getSouth(),
                                 this.data.boundary.getWest());
       this.#moveTo(dest);
+      const mapSize = window.map.getSize();
+      const offset = new L.Point(0, mapSize.y * 45 / 100);
+      window.map.panBy(offset, {animate: false});
       this.status = 'Moved southwest';
     }
   }
