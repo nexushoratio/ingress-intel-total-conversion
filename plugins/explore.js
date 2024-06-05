@@ -107,7 +107,8 @@ window.plugin.explore.Data = class {
   /** Load data from localStorage. */
   load() {
     this.#loading = true;
-    const rawData = localStorage[window.plugin.explore.KEY_STORAGE] || '{}';
+    const rawData = localStorage.getItem(window.plugin.explore.KEY_STORAGE)
+          || '{}';
     this.#fromPojo(JSON.parse(rawData));
     this.#loading = false;
     if (this.#deferSaved) {
@@ -121,7 +122,8 @@ window.plugin.explore.Data = class {
       this.#deferSaved = true;
     } else {
       const pojo = this.#toPojo();
-      localStorage[window.plugin.explore.KEY_STORAGE] = JSON.stringify(pojo);
+      localStorage.setItem(window.plugin.explore.KEY_STORAGE,
+                           JSON.stringify(pojo));
     }
   }
 
