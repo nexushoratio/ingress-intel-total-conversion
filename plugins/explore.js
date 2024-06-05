@@ -36,6 +36,8 @@ window.plugin.explore.state = null;
  * @property {string} latlng
  */
 
+window.plugin.explore.Exception = class extends Error {};
+
 /** Wrapper for data saved to localStorage. */
 window.plugin.explore.Data = class {
 
@@ -122,8 +124,16 @@ window.plugin.explore.Data = class {
       this.#deferSaved = true;
     } else {
       const pojo = this.#toPojo();
-      localStorage.setItem(window.plugin.explore.KEY_STORAGE,
-                           JSON.stringify(pojo));
+      try {
+        localStorage.setItem(window.plugin.explore.KEY_STORAGE,
+                             JSON.stringify(pojo));
+      } catch (exc) {
+        if (exc instanceof DOMException && exc.name === 'QuotaExceededError') {
+          console.log(exc.message);
+          throw new window.plugin.explore.Exception('Storage quota exceeded');
+        }
+        throw exc;
+      }
     }
   }
 
@@ -261,34 +271,44 @@ window.plugin.explore.State = class {
   /** Process the current view of the map. */
   process() {
     if (this.exploring) {
-      const bounds = window.map.getBounds();
-      const inter = this.data.boundary.intersects(bounds);
-      if (window.map.getZoom() === window.DEFAULT_ZOOM && inter) {
-        this.#iteration += 1;
+      try {
+        const bounds = window.map.getBounds();
+        const inter = this.data.boundary.intersects(bounds);
+        if (window.map.getZoom() === window.DEFAULT_ZOOM && inter) {
+          this.#iteration += 1;
 
-        this.#counted = 0;
-        for (const [guid, marker] of Object.entries(window.portals)) {
-          if (bounds.contains(marker.getLatLng())) {
-            this.#counted += 1;
-            if (marker.options.data.title) {
-              this.data.addPortal(marker);
-            } else {
-              console.log('placeholder:', marker.options.data);
-              this.stop();
-              this.status = 'Saw placeholder (bug?)';
+          this.#counted = 0;
+          for (const [guid, marker] of Object.entries(window.portals)) {
+            if (bounds.contains(marker.getLatLng())) {
+              this.#counted += 1;
+              if (marker.options.data.title) {
+                this.data.addPortal(marker);
+              } else {
+                console.log('placeholder:', marker.options.data);
+                this.stop();
+                this.status = 'Saw placeholder (bug?)';
+                return;
+              }
             }
           }
+          this.#populateDialog();
+          this.data.current = bounds.getCenter();
+          this.#addCountLabel(this.data.current, this.#counted);
+          L.rectangle(bounds, {color: this.#colorExplored})
+            .addTo(this.layerGroup);
+          this.#nextDest();
+          window.idleReset();
+        } else {
+          this.status = 'Saw bad zoom or location, reset';
+          this.#moveTo(this.#startDest());
         }
-        this.#populateDialog();
-        this.data.current = bounds.getCenter();
-        this.#addCountLabel(this.data.current, this.#counted);
-        L.rectangle(bounds, {color: this.#colorExplored})
-          .addTo(this.layerGroup);
-        this.#nextDest();
-        window.idleReset();
-      } else {
-        this.status = 'Saw bad zoom or location, reset';
-        this.#moveTo(this.#startDest());
+      } catch (exc) {
+        if (exc instanceof window.plugin.explore.Exception) {
+          this.stop();
+          this.status = `${exc.name}: ${exc.message}`;
+        } else {
+          throw exc;
+        }
       }
     }
     this.delay = null;
