@@ -129,7 +129,6 @@ window.plugin.explore.Data = class {
                              JSON.stringify(pojo));
       } catch (exc) {
         if (exc instanceof DOMException && exc.name === 'QuotaExceededError') {
-          console.log(exc.message);
           throw new window.plugin.explore.Exception('Storage quota exceeded');
         }
         throw exc;
