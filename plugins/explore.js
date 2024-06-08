@@ -234,6 +234,11 @@ window.plugin.explore.State = class {
     return this.#layerGroup;
   }
 
+  /** @type {string} - Time of last process action. */
+  get processTime() {
+    return this.#formatDate(this.#processTime);
+  }
+
   /** @type {string} - Start time of current/last exploration. */
   get startTime() {
     return this.#formatDate(this.#startTime);
@@ -290,6 +295,7 @@ window.plugin.explore.State = class {
               }
             }
           }
+          this.#processTime = new Date();
           this.#populateDialog();
           this.data.current = bounds.getCenter();
           this.#addCountLabel(this.data.current, this.#counted);
@@ -355,6 +361,7 @@ window.plugin.explore.State = class {
     if (this.exploring) {
       this.status = 'Stopped';
       this.#stopTime = new Date();
+      this.#processTime = null;
     }
     this.#exploring = false;
     this.#populateDialog();
@@ -384,7 +391,8 @@ window.plugin.explore.State = class {
   #dialogMapping = {
     'Exploring': 'exploring',
     'Views explored': 'iteration',
-    'Last view count': 'counted',
+    'Last process count': 'counted',
+    'Last process time': 'processTime',
     'Total portal count': 'total',
     'Start time': 'startTime',
     'Stop time': 'stopTime',
@@ -393,6 +401,7 @@ window.plugin.explore.State = class {
   #exploring = false;
   #iteration = 0;
   #layerGroup
+  #processTime = null;
   #rect
   #startTime = null;
   #stopTime = null;
