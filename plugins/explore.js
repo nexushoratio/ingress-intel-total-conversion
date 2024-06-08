@@ -338,7 +338,7 @@ window.plugin.explore.State = class {
     window.saveFile(JSON.stringify(data, null, 2),
                     filename,
                     'application/json');
-    this.status = `Saved with ${filename}`;
+    this.status = `Saved to ${filename}`;
   }
 
   /** Start exploring the current bounds. */
