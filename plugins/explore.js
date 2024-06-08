@@ -346,7 +346,7 @@ window.plugin.explore.State = class {
       const zoom = window.map.getZoom();
       if (window.mapDataRequest.status.short === 'done'
           && window.mapDataRequest.fetchedDataParams.mapZoom === zoom) {
-        // Trick into reloading data if we do not move
+        // Trick into reloading data in case we did not move far.
         window.mapDataRequest.fetchedDataParams.mapZoom = 0;
       }
       this.#startTime = new Date();
