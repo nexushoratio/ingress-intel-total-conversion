@@ -289,8 +289,7 @@ window.plugin.explore.State = class {
                 this.data.addPortal(marker);
               } else {
                 console.log('placeholder:', marker.options.data);
-                this.stop();
-                this.status = 'Saw placeholder (bug?)';
+                this.stop('Saw placeholder (bug?)');
                 return;
               }
             }
@@ -309,8 +308,7 @@ window.plugin.explore.State = class {
         }
       } catch (exc) {
         if (exc instanceof window.plugin.explore.Exception) {
-          this.stop();
-          this.status = `${exc.name}: ${exc.message}`;
+          this.stop(`${exc.name}: ${exc.message}`);
         } else {
           throw exc;
         }
@@ -359,10 +357,23 @@ window.plugin.explore.State = class {
     }
   }
 
-  /** Stop the current exploration. */
-  stop() {
+  /**
+   * Stop the current exploration.
+   * @param {string} [msg] - Special message to set for status AND
+   * notification.
+   */
+  stop(msg=null) {
     if (this.exploring) {
-      this.status = 'Stopped';
+      if (msg) {
+        const opts = {
+          body: msg,
+          requireInteraction: true,
+        }
+        const note = new Notification('Exploring stopped', opts);
+        this.status = msg;
+      } else {
+        this.status = 'Stopped';
+      }
       this.#stopTime = new Date();
       this.#processTime = null;
     }
@@ -460,9 +471,9 @@ window.plugin.explore.State = class {
     const test = new L.LatLng(this.data.boundary.getSouth(),
                               window.map.getCenter().lng);
     if (window.map.getBounds().contains(test)) {
-      this.stop();
+      this.stop('Saw the southern border');
       this.data.current = null;
-      this.status = 'Saw the southern border';
+      // this.status = 'Saw the southern border';
     } else {
       const dest = new L.LatLng(window.map.getBounds().getSouth(),
                                 this.data.boundary.getWest());
@@ -659,6 +670,12 @@ window.plugin.explore.central = function() {
     commands.push({
       label: 'Set boundary from Bookmarks',
       func: explore.use_bookmarks,
+    });
+  }
+  if (window.Notification && Notification.permission === 'default') {
+    commands.push({
+      label: 'Allow stop notifications',
+      func: Notification.requestPermission,
     });
   }
   const html = `<div class='button-menu'>
