@@ -333,9 +333,12 @@ window.plugin.explore.State = class {
         }
       }
     }
+    const dateSeq = this.#sequenceDate(new Date());
+    const filename = `IITC-exploration-${dateSeq}.json`;
     window.saveFile(JSON.stringify(data, null, 2),
-                    'IITC-exploration.json',
+                    filename,
                     'application/json');
+    this.status = `Saved with ${filename}`;
   }
 
   /** Start exploring the current bounds. */
@@ -511,6 +514,22 @@ window.plugin.explore.State = class {
         cell.text(this[prop]);
       }
     }
+  }
+
+  /**
+   * Turn a timestamp into YYYY-MM-DD-seconds.
+   * @param {Date} date - Date to format.
+   * @returns {string} - Formated date.
+   */
+  #sequenceDate(date) {
+    const yyyy = date.getFullYear();
+    const mm = window.zeroPad(date.getMonth() + 1, 2);
+    const dd = window.zeroPad(date.getDate(), 2);
+    const seq = window.zeroPad(date.getHours() * 3600
+                               + date.getMinutes() * 60
+                               + date.getSeconds(), 5);
+    const dateStr = `${yyyy}-${mm}-${dd}-${seq}`;
+    return dateStr;
   }
 
   /**
