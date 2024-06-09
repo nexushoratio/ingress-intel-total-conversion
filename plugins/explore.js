@@ -460,14 +460,14 @@ window.plugin.explore.State = class {
 
   /** Try to pan east, otherwise move southwest. */
   #goEast() {
-    const test = new L.LatLng(window.map.getCenter().lat,
-                              this.data.boundary.getEast());
+    const test = L.latLng(window.map.getCenter().lat,
+                          this.data.boundary.getEast());
     if (window.map.getBounds().contains(test)) {
       this.status = 'Saw the eastern border';
       this.#goSouthWest();
     } else {
       const mapSize = window.map.getSize();
-      const offset = new L.Point(mapSize.x * 95 / 100, 0);
+      const offset = L.point(mapSize.x * 95 / 100, 0);
       window.map.panBy(offset, {animate: false});
       this.status = 'Moved due east';
     }
@@ -475,19 +475,19 @@ window.plugin.explore.State = class {
 
   /** Move southwest, like an old typewriter doing a carriage return. */
   #goSouthWest() {
-    const test = new L.LatLng(this.data.boundary.getSouth(),
-                              window.map.getCenter().lng);
+    const test = L.latLng(this.data.boundary.getSouth(),
+                          window.map.getCenter().lng);
     if (window.map.getBounds().contains(test)) {
       this.data.current = null;
       this.stop('Saw the southern border');
     } else {
-      const dest = new L.LatLng(window.map.getBounds().getSouth(),
-                                this.data.boundary.getWest());
+      const dest = L.latLng(window.map.getBounds().getSouth(),
+                            this.data.boundary.getWest());
       this.#moveTo(dest);
       // If there is room, do a pan as well.
       if (test.lat < window.map.getBounds().getSouth()) {
         const mapSize = window.map.getSize();
-        const offset = new L.Point(0, mapSize.y * 45 / 100);
+        const offset = L.point(0, mapSize.y * 45 / 100);
         window.map.panBy(offset, {animate: false});
       }
       this.status = 'Moved southwest';
