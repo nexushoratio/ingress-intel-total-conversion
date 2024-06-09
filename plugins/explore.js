@@ -239,6 +239,12 @@ window.plugin.explore.State = class {
     return this.#formatDate(this.#processTime);
   }
 
+  /** @type {string} - Progress of the exploration. */
+  get progress() {
+    const {ntos, wtoe} = this.#progress();
+    return `NtoS: ${ntos} WtoE: ${wtoe}`;
+  }
+
   /** @type {string} - Start time of current/last exploration. */
   get startTime() {
     return this.#formatDate(this.#startTime);
@@ -295,8 +301,8 @@ window.plugin.explore.State = class {
             }
           }
           this.#processTime = new Date();
-          this.#populateDialog();
           this.data.current = bounds.getCenter();
+          this.#populateDialog();
           this.#addCountLabel(this.data.current, this.#counted);
           L.rectangle(bounds, {color: this.#colorExplored})
             .addTo(this.layerGroup);
@@ -410,6 +416,7 @@ window.plugin.explore.State = class {
     'Total portal count': 'total',
     'Start time': 'startTime',
     'Stop time': 'stopTime',
+    'Progress': 'progress',
     'Status': 'status',
   };
   #exploring = false;
@@ -471,9 +478,8 @@ window.plugin.explore.State = class {
     const test = new L.LatLng(this.data.boundary.getSouth(),
                               window.map.getCenter().lng);
     if (window.map.getBounds().contains(test)) {
-      this.stop('Saw the southern border');
       this.data.current = null;
-      // this.status = 'Saw the southern border';
+      this.stop('Saw the southern border');
     } else {
       const dest = new L.LatLng(window.map.getBounds().getSouth(),
                                 this.data.boundary.getWest());
@@ -525,6 +531,30 @@ window.plugin.explore.State = class {
         cell.text(this[prop]);
       }
     }
+  }
+
+  /**
+   * Compute how far current is from the start point.
+   * @return [{string}, {string}] - Percent 
+   */
+  #progress() {
+    let ntos = '--';
+    let wtoe = '--';
+    if (this.data.current) {
+      const {lat, lng} = this.data.current;
+      const bounds = this.data.boundary;
+      const north = L.latLng({lat: bounds.getNorth(), lng: lng});
+      const south = L.latLng({lat: bounds.getSouth(), lng: lng});
+      const west = L.latLng({lat: lat, lng: bounds.getWest()});
+      const east = L.latLng({lat: lat, lng: bounds.getEast()});
+      ntos = Math.round(100 * north.distanceTo(this.data.current)
+                        / north.distanceTo(south));
+      ntos = `${ntos}%`;
+      wtoe = Math.round(100 * west.distanceTo(this.data.current)
+                        / west.distanceTo(east));
+      wtoe = `${wtoe}%`;
+    }
+    return {ntos: ntos, wtoe: wtoe};
   }
 
   /**
