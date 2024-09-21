@@ -634,6 +634,10 @@ window.plugin.explore.dataRefreshed = function() {
 window.plugin.explore.portalDetailsUpdated = function(details) {
   const state = window.plugin.explore.state;
   state.cacheMarker(details.portal);
+  if (!state.exploring && state.status.startsWith('Saw placeholder ')) {
+    console.log('restarting...');
+    state.start();
+  }
 }
 
 /** Triggered from a command button. */
