@@ -537,7 +537,7 @@ window.plugin.explore.State = class {
 
   /**
    * Compute how far current is from the start point.
-   * @return [{string}, {string}] - Percent 
+   * @return [{string}, {string}] - Percent progressed.
    */
   #progress() {
     let ntos = '--';
