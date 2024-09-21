@@ -295,7 +295,7 @@ window.plugin.explore.State = class {
                 this.data.addPortal(marker);
               } else {
                 console.log('placeholder:', marker.options.data);
-                this.stop('Saw placeholder (bug?)');
+                this.stop('Saw placeholder (link to a moved portal?)');
                 return;
               }
             }
