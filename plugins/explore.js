@@ -383,6 +383,7 @@ window.plugin.explore.State = class {
       this.#stopTime = new Date();
       this.#processTime = null;
     }
+    this.delay = null;
     this.#exploring = false;
     this.#populateDialog();
   }
