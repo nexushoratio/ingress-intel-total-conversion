@@ -271,6 +271,14 @@ window.plugin.explore.State = class {
     return this.data.portals.size;
   }
 
+  /**
+   * @param {L.circleMarker} marker - As enhanced when added to
+   * window.portals.
+   */
+  cacheMarker(marker) {
+    this.#markerCache.set(marker.options.guid, marker);
+  }
+
   /** Clear out the portal data. */
   clear() {
     this.stop();
@@ -288,9 +296,13 @@ window.plugin.explore.State = class {
           this.#iteration += 1;
 
           this.#counted = 0;
-          for (const [guid, marker] of Object.entries(window.portals)) {
+          for (let [guid, marker] of Object.entries(window.portals)) {
             if (bounds.contains(marker.getLatLng())) {
               this.#counted += 1;
+              if (!marker.options.data.title) {
+                console.log(`Checking the cache for ${guid}.`);
+                marker = this.#markerCache.get(guid) || marker;
+              }
               if (marker.options.data.title) {
                 this.data.addPortal(marker);
               } else {
@@ -424,6 +436,7 @@ window.plugin.explore.State = class {
   #exploring = false;
   #iteration = 0;
   #layerGroup
+  #markerCache = new Map();
   #processTime = null;
   #rect
   #startTime = null;
@@ -610,6 +623,19 @@ window.plugin.explore.dataRefreshed = function() {
   }
 }
 
+/**
+ * Triggered after a portal is viewed.
+ *
+ * When we come across a problem portal, we use {@link renderPortalDetails} to
+ * force a refresh of its data.  This function captures that refresh and
+ * caches it.
+ * @param {Object} details - Portal details.
+ **/
+window.plugin.explore.portalDetailsUpdated = function(details) {
+  const state = window.plugin.explore.state;
+  state.cacheMarker(details.portal);
+}
+
 /** Triggered from a command button. */
 window.plugin.explore.tbd = function() {
   window.plugin.explore.state.status = 'Command not implemented';
@@ -749,6 +775,8 @@ window.plugin.explore.central = function() {
 window.plugin.explore.iitcLoaded = function() {
   window.plugin.explore.state = new window.plugin.explore.State();
   window.addHook('mapDataRefreshEnd', window.plugin.explore.dataRefreshed);
+  window.addHook(
+    'portalDetailsUpdated', window.plugin.explore.portalDetailsUpdated);
   window.layerChooser.addOverlay(
     window.plugin.explore.state.layerGroup,
     'Explore bounds',
