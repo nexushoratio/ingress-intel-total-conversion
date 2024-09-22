@@ -329,6 +329,9 @@ window.plugin.explore.State = class {
       } catch (exc) {
         if (exc instanceof window.plugin.explore.Exception) {
           this.stop(`${exc.name}: ${exc.message}`);
+          this.save();
+          this.clear();
+          this.start();
         } else {
           throw exc;
         }
