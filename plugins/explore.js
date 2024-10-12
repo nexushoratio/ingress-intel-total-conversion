@@ -752,11 +752,10 @@ window.plugin.explore.central = function() {
     html: html,
   });
   const div = dia.find('div');
-  const commandMap = new Map();
   for (const item of commands) {
     const button = document.createElement('button');
     button.innerText = item.label;
-    commandMap.set(item.label, item.func);
+    button.addEventListener('click', item.func);
     div.append(button);
   }
   const table = document.createElement('table');
@@ -775,8 +774,6 @@ window.plugin.explore.central = function() {
   div.append(table);
   dia.on('dialogclose', () => {window.plugin.explore.state.dialog = null;});
   window.plugin.explore.state.dialog = dia;
-  dia.find('button')
-    .on('click', (evt) => commandMap.get(evt.target.innerText)());
 }
 
 /** Called when IITC is fully loaded. */
