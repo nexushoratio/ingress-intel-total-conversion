@@ -392,7 +392,7 @@ window.plugin.explore.State = class {
           body: msg,
           requireInteraction: true,
         }
-        const note = new Notification('Exploring stopped', opts);
+        new Notification('Exploring stopped', opts);
         this.status = msg;
       } else {
         this.status = 'Stopped';
