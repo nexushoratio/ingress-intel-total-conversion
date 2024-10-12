@@ -323,6 +323,8 @@ window.plugin.explore.State = class {
               if (marker.options.data.title) {
                 this.data.addPortal(marker);
               } else {
+                // getEntities often drops moved portals.  Affects stock intel
+                // as well, only it does not even bother with a placeholder.
                 window.renderPortalDetails(marker.options.guid);
                 console.log('placeholder:', marker.options.data);
                 this.stop('Saw placeholder (link to a moved portal?)');
