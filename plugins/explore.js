@@ -74,6 +74,17 @@ window.plugin.explore.Data = class {
     return this.#portals;
   }
 
+  /** @type {boolean} - Whether to use notifications. */
+  get useNotifications() {
+    return this.#useNotifications;
+  }
+
+  /** @param {boolean} val - Whether to use notifications. */
+  set useNotifications(val) {
+    this.#useNotifications = val;
+    this.save();
+  }
+
   /**
    * @param {L.circleMarker} marker - As enhanced when added to
    * window.portals.
@@ -143,6 +154,7 @@ window.plugin.explore.Data = class {
   #loading
   #portals = new Map();
   #state
+  #useNotifications = false;
 
   /** Modify current data to a plain-old JavaScript object. */
   #toPojo() {
@@ -154,6 +166,7 @@ window.plugin.explore.Data = class {
         sw: {lat: sw.lat, lng: sw.lng},
       },
       portals: {},
+      useNotifications: this.#useNotifications,
     };
     if (this.current) {
       pojo.current = {lat: this.current.lat, lng: this.current.lng};
@@ -178,6 +191,9 @@ window.plugin.explore.Data = class {
       for (const [guid, portal] of Object.entries(pojo.portals)) {
         this.portals.set(guid, portal);
       }
+    }
+    if (Object.hasOwn(pojo, 'useNotifications')) {
+      this.useNotifications = pojo.useNotifications;
     }
   }
 
@@ -392,7 +408,9 @@ window.plugin.explore.State = class {
           body: msg,
           requireInteraction: true,
         }
-        new Notification('Exploring stopped', opts);
+        if (this.data.useNotifications) {
+          new Notification('Exploring stopped', opts);
+        }
         this.status = msg;
       } else {
         this.status = 'Stopped';
@@ -607,6 +625,19 @@ window.plugin.explore.State = class {
 
 }
 
+/**
+ * Prepend an `input` to an element.
+ * @param {HTMLElement} element - Element to modify.
+ * @param {object} config - Initial configuration.
+ * @param {function(Event)} changeHandler - Handler for `change` event.
+ */
+window.plugin.explore._prependInput = function(element, config, changeHandler) {
+  const input =  document.createElement('input');
+  Object.assign(input, config);
+  input.addEventListener('change', changeHandler);
+  element.prepend(input);
+}
+
 /** Triggered after a suitable delay. */
 window.plugin.explore.processMap = function() {
   window.plugin.explore.state.process();
@@ -721,9 +752,33 @@ window.plugin.explore.use_bookmarks = function() {
   }
 }
 
+/**
+ * Triggered from a command.
+ * @param {Event} evt - Triggering event.
+ */
+window.plugin.explore.toggle_notifications = function(evt) {
+  const state = window.plugin.explore.state;
+
+  if (evt.type === 'change') {
+    if (evt.target.checked) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission().then((permission) => {
+          if (Notification.permission === 'denied') {
+            evt.target.checked = false;
+            evt.target.disabled = true;
+            state.data.useNotifications = evt.target.checked;
+          }
+        });
+      }
+    }
+    state.data.useNotifications = evt.target.checked;
+  }
+}
+
 /** Opens the dialog/dashboard. */
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
+
   const commands = [
     {elem: 'button', label: 'Toggle Exploring', func: explore.toggle_exploring},
     {elem: 'button', label: 'Save Exploration', func: explore.save},
@@ -746,13 +801,22 @@ window.plugin.explore.central = function() {
       func: explore.use_bookmarks,
     });
   }
-  if (window.Notification && Notification.permission === 'default') {
-    commands.push({
-      elem: 'button',
-      label: 'Allow stop notifications',
-      func: () => {Notification.requestPermission();},
-    });
+  if (Notification.permission !== 'granted') {
+    explore.state.data.useNotifications = false;
   }
+  const notify_config = {
+    type: 'checkbox',
+    checked: explore.state.data.useNotifications,
+    disabled: !window.Notification || Notification.permission === 'denied',
+  };
+  commands.push({
+    elem: 'label',
+    post_create: (elem) => explore._prependInput(
+      elem, notify_config, explore.toggle_notifications),
+    label: 'Allow notifications',
+    func: explore.toggle_notifications,
+  });
+
   const html = `<div class='button-menu'>
     </div>`;
   const dia = dialog({
@@ -764,6 +828,9 @@ window.plugin.explore.central = function() {
   for (const item of commands) {
     const elem = document.createElement(item.elem);
     elem.innerText = item.label;
+    if (item.post_create) {
+      item.post_create(elem);
+    }
     elem.addEventListener('click', item.func);
     div.append(elem);
   }
