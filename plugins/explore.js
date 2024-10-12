@@ -719,29 +719,32 @@ window.plugin.explore.use_bookmarks = function() {
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
   const commands = [
-    {label: 'Toggle Exploring', func: explore.toggle},
-    {label: 'Save Exploration', func: explore.save},
-    {label: 'Clear Exploration', func: explore.clear},
-    {label: 'Refresh Explored View', func: explore.refresh},
-    {label: 'Set Boundary from View', func: explore.use_view},
-    {label: 'Extend Boundary to View', func: explore.extend_view},
+    {elem: 'button', label: 'Toggle Exploring', func: explore.toggle},
+    {elem: 'button', label: 'Save Exploration', func: explore.save},
+    {elem: 'button', label: 'Clear Exploration', func: explore.clear},
+    {elem: 'button', label: 'Refresh Explored View', func: explore.refresh},
+    {elem: 'button', label: 'Set Boundary from View', func: explore.use_view},
+    {elem: 'button', label: 'Extend Boundary to View', func: explore.extend_view},
   ];
   if (window.plugin.drawTools) {
     commands.push({
+      elem: 'button',
       label: 'Set boundary from DrawTools',
       func: explore.use_drawtools,
     });
   }
   if (window.plugin.bookmarks) {
     commands.push({
+      elem: 'button',
       label: 'Set boundary from Bookmarks',
       func: explore.use_bookmarks,
     });
   }
   if (window.Notification && Notification.permission === 'default') {
     commands.push({
+      elem: 'button',
       label: 'Allow stop notifications',
-      func: Notification.requestPermission,
+      func: () => {Notification.requestPermission();},
     });
   }
   const html = `<div class='button-menu'>
@@ -753,10 +756,10 @@ window.plugin.explore.central = function() {
   });
   const div = dia.find('div');
   for (const item of commands) {
-    const button = document.createElement('button');
-    button.innerText = item.label;
-    button.addEventListener('click', item.func);
-    div.append(button);
+    const elem = document.createElement(item.elem);
+    elem.innerText = item.label;
+    elem.addEventListener('click', item.func);
+    div.append(elem);
   }
   const table = document.createElement('table');
   const tbody = document.createElement('tbody');
