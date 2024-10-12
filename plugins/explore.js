@@ -615,6 +615,7 @@ window.plugin.explore.processMap = function() {
 /** Triggered after all portals in the current view are loaded. */
 window.plugin.explore.dataRefreshed = function() {
   const state = window.plugin.explore.state;
+
   if (state.exploring) {
     if (state.delay) {
       status.status = 'Map moved during process; stop that!';
@@ -637,6 +638,7 @@ window.plugin.explore.dataRefreshed = function() {
  **/
 window.plugin.explore.portalDetailsUpdated = function(details) {
   const state = window.plugin.explore.state;
+
   state.cacheMarker(details.portal);
   if (!state.exploring && state.status.startsWith('Saw placeholder ')) {
     console.log('restarting...');
@@ -678,6 +680,7 @@ window.plugin.explore.refresh = function() {
 /** Triggered from a command button. */
 window.plugin.explore.use_view = function() {
   const state = window.plugin.explore.state;
+
   state.data.boundary = window.map.getBounds();
   state.status = 'Bounds set to current view';
 }
@@ -685,6 +688,7 @@ window.plugin.explore.use_view = function() {
 /** Triggered from a command button. */
 window.plugin.explore.extend_view = function() {
   const state = window.plugin.explore.state;
+
   state.data.extendBoundary(window.map.getBounds());
   state.status = 'Bounds now includes current view';
 }
@@ -692,6 +696,7 @@ window.plugin.explore.extend_view = function() {
 /** Triggered from a command button. */
 window.plugin.explore.use_drawtools = function() {
   const state = window.plugin.explore.state;
+
   const bounds = window.plugin.drawTools.drawnItems.getBounds();
   if (bounds.isValid()) {
     state.data.boundary = bounds;
@@ -704,6 +709,7 @@ window.plugin.explore.use_drawtools = function() {
 /** Triggered from a command button. */
 window.plugin.explore.use_bookmarks = function() {
   const state = window.plugin.explore.state;
+
   const group = L.featureGroup(
     window.plugin.bookmarks.starLayerGroup.getLayers());
   const bounds = group.getBounds();
