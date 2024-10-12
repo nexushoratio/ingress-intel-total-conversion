@@ -828,13 +828,15 @@ window.plugin.explore.central = function() {
   });
   const div = dia.find('div');
   for (const item of commands) {
+    const wrapper = document.createElement('div');
     const elem = document.createElement(item.elem);
     elem.innerText = item.label;
     if (item.post_create) {
       item.post_create(elem);
     }
     elem.addEventListener('click', item.func);
-    div.append(elem);
+    wrapper.append(elem);
+    div.append(wrapper);
   }
   const table = document.createElement('table');
   const tbody = document.createElement('tbody');
