@@ -650,7 +650,7 @@ window.plugin.explore.tbd = function() {
 }
 
 /** Triggered from a command button. */
-window.plugin.explore.toggle = function() {
+window.plugin.explore.toggle_exploring = function() {
   const state = window.plugin.explore.state;
 
   if (state.exploring) {
@@ -719,7 +719,7 @@ window.plugin.explore.use_bookmarks = function() {
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
   const commands = [
-    {elem: 'button', label: 'Toggle Exploring', func: explore.toggle},
+    {elem: 'button', label: 'Toggle Exploring', func: explore.toggle_exploring},
     {elem: 'button', label: 'Save Exploration', func: explore.save},
     {elem: 'button', label: 'Clear Exploration', func: explore.clear},
     {elem: 'button', label: 'Refresh Explored View', func: explore.refresh},
