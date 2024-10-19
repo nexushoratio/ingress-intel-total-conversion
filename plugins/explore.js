@@ -679,7 +679,7 @@ window.plugin.explore.portalDetailsUpdated = function(details) {
   }
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.tbd = function() {
   window.plugin.explore.state.status = 'Command not implemented';
 }
@@ -695,22 +695,22 @@ window.plugin.explore.toggle_exploring = function() {
   }
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.save = function() {
   window.plugin.explore.state.save();
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.clear = function() {
   window.plugin.explore.state.clear();
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.refresh = function() {
   window.plugin.explore.state.refreshLayers();
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.use_view = function() {
   const state = window.plugin.explore.state;
 
@@ -718,7 +718,7 @@ window.plugin.explore.use_view = function() {
   state.status = 'Bounds set to current view';
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.extend_view = function() {
   const state = window.plugin.explore.state;
 
@@ -726,7 +726,7 @@ window.plugin.explore.extend_view = function() {
   state.status = 'Bounds now includes current view';
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.use_drawtools = function() {
   const state = window.plugin.explore.state;
 
@@ -739,7 +739,7 @@ window.plugin.explore.use_drawtools = function() {
   }
 }
 
-/** Triggered from a command button. */
+/** Triggered from a command. */
 window.plugin.explore.use_bookmarks = function() {
   const state = window.plugin.explore.state;
 
