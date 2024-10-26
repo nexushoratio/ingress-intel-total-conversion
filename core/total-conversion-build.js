@@ -1,6 +1,6 @@
 // @author         jonatkins
 // @name           IITC: Ingress intel map total conversion
-// @version        0.38.1
+// @version        0.39.0
 // @description    Total conversion for the ingress intel map.
 // @run-at         document-end
 
@@ -10,6 +10,16 @@ window.IITC = IITC;
 
 window.script_info = plugin_info;
 window.script_info.changelog = [
+  {
+    version: '0.39.0',
+    changes: [
+      'Add favicon.ico for Intel page',
+      'Fix accessKey and mouseover in Toolbox API (fix permalink)',
+      'Refactored comm tab code, added Comm API and proxy between chat and Comm API',
+      'Artifact code refactoring',
+      'Add conditional check for String.prototype.capitalize polyfill',
+    ],
+  },
   {
     version: '0.38.1',
     changes: ['Fix toolbar for some deprecated plugins', 'Fix dialogs on iitc boot'],
@@ -122,6 +132,7 @@ if (!window.PLAYER || !PLAYER.nickname) {
 // possible without requiring scripts.
 document.head.innerHTML =
   '<title>Ingress Intel Map</title>' +
+  '<link rel="shortcut icon" href="/img/favicon.ico" />' +
   '<style>' +
   '@include_string:style.css@' +
   '</style>' +
