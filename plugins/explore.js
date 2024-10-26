@@ -74,6 +74,17 @@ window.plugin.explore.Data = class {
     return this.#portals;
   }
 
+  /** @type {boolean} - Whether to use automation. */
+  get useAutomation() {
+    return this.#useAutomation;
+  }
+
+  /** @param {boolean} val - Whether to use automation. */
+  set useAutomation(val) {
+    this.#useAutomation = val;
+    this.save();
+  }
+
   /** @type {boolean} - Whether to use notifications. */
   get useNotifications() {
     return this.#useNotifications;
@@ -154,6 +165,7 @@ window.plugin.explore.Data = class {
   #loading
   #portals = new Map();
   #state
+  #useAutomation = false;
   #useNotifications = false;
 
   /** Modify current data to a plain-old JavaScript object. */
@@ -166,6 +178,7 @@ window.plugin.explore.Data = class {
         sw: {lat: sw.lat, lng: sw.lng},
       },
       portals: {},
+      useAutomation: this.#useAutomation,
       useNotifications: this.#useNotifications,
     };
     if (this.current) {
@@ -194,6 +207,9 @@ window.plugin.explore.Data = class {
     }
     if (Object.hasOwn(pojo, 'useNotifications')) {
       this.useNotifications = pojo.useNotifications;
+    }
+    if (Object.hasOwn(pojo, 'useAutomation')) {
+      this.useAutomation = pojo.useAutomation;
     }
   }
 
@@ -347,9 +363,11 @@ window.plugin.explore.State = class {
       } catch (exc) {
         if (exc instanceof window.plugin.explore.Exception) {
           this.stop(`${exc.name}: ${exc.message}`);
-          this.save();
-          this.clear();
-          this.start();
+          if (this.data.useAutomation) {
+            this.save();
+            this.clear();
+            this.start();
+          }
         } else {
           throw exc;
         }
@@ -519,6 +537,10 @@ window.plugin.explore.State = class {
     if (window.map.getBounds().contains(test)) {
       this.data.current = null;
       this.stop('Saw the southern border');
+      if (this.data.useAutomation) {
+        this.save();
+        this.clear();
+      }
     } else {
       const dest = L.latLng(window.map.getBounds().getSouth(),
                             this.data.boundary.getWest());
@@ -667,13 +689,17 @@ window.plugin.explore.dataRefreshed = function() {
  * When we come across a problem portal, we use {@link renderPortalDetails} to
  * force a refresh of its data.  This function captures that refresh and
  * caches it.
+ *
+ * Also, if exploring was stopped because of this, optionally restart.
  * @param {Object} details - Portal details.
  **/
 window.plugin.explore.portalDetailsUpdated = function(details) {
   const state = window.plugin.explore.state;
 
   state.cacheMarker(details.portal);
-  if (!state.exploring && state.status.startsWith('Saw placeholder ')) {
+  if (!state.exploring
+      && state.status.startsWith('Saw placeholder ')
+      && state.data.useAutomation) {
     console.log('restarting...');
     state.start();
   }
@@ -777,6 +803,18 @@ window.plugin.explore.toggle_notifications = function(evt) {
   }
 }
 
+/**
+ * Triggered from a command.
+ * @param {Event} evt - Triggering event.
+ */
+window.plugin.explore.toggle_automation = function(evt) {
+  const state = window.plugin.explore.state;
+
+  if (evt.type === 'change') {
+    state.data.useAutomation = evt.target.checked;
+  }
+}
+
 /** Opens the dialog/dashboard. */
 window.plugin.explore.central = function() {
   const explore = window.plugin.explore;
@@ -817,6 +855,17 @@ window.plugin.explore.central = function() {
       elem, notify_config, explore.toggle_notifications),
     label: 'Allow notifications',
     func: explore.toggle_notifications,
+  });
+  const automation_config = {
+    type: 'checkbox',
+    checked: explore.state.data.useAutomation,
+  };
+  commands.push({
+    elem: 'label',
+    post_create: (elem) => explore._prependInput(
+      elem, automation_config, explore.toggle_automation),
+    label: 'Enable full automation',
+    func: explore.toggle_automation,
   });
 
   const html = `<div class='button-menu'>
