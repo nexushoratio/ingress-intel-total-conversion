@@ -1,15 +1,31 @@
 // @author         jonatkins
 // @name           IITC: Ingress intel map total conversion
-// @version        0.38.1
+// @version        0.39.1
 // @description    Total conversion for the ingress intel map.
 // @run-at         document-end
 
+/* global plugin_info, PLAYER -- eslint */
+
 // create IITC scope
-var IITC = {};
+const IITC = {};
 window.IITC = IITC;
 
 window.script_info = plugin_info;
 window.script_info.changelog = [
+  {
+    version: '0.39.1',
+    changes: ['Fix Machina color in chat'],
+  },
+  {
+    version: '0.39.0',
+    changes: [
+      'Add favicon.ico for Intel page',
+      'Fix accessKey and mouseover in Toolbox API (fix permalink)',
+      'Refactored comm tab code, added Comm API and proxy between chat and Comm API',
+      'Artifact code refactoring',
+      'Add conditional check for String.prototype.capitalize polyfill',
+    ],
+  },
   {
     version: '0.38.1',
     changes: ['Fix toolbar for some deprecated plugins', 'Fix dialogs on iitc boot'],
@@ -87,11 +103,11 @@ if (document.documentElement.getAttribute('itemscope') !== null) {
 window.iitcBuildDate = '@build_date@';
 
 // disable vanilla JS
-window.onload = function() {};
-document.body.onload = function() {};
+window.onload = function () {};
+document.body.onload = function () {};
 
-//originally code here parsed the <Script> tags from the page to find the one that defined the PLAYER object
-//however, that's already been executed, so we can just access PLAYER - no messing around needed!
+// originally code here parsed the <Script> tags from the page to find the one that defined the PLAYER object
+// however, that's already been executed, so we can just access PLAYER - no messing around needed!
 
 if (!window.PLAYER || !PLAYER.nickname) {
   // page doesn’t have a script tag with player information.
@@ -106,8 +122,7 @@ if (!window.PLAYER || !PLAYER.nickname) {
   // FIXME: handle nia takedown in progress
 
   // add login form stylesheet
-  var style = document.createElement('style');
-  style.type = 'text/css';
+  const style = document.createElement('style');
   style.appendChild(document.createTextNode('@include_string:login.css@'));
   document.head.appendChild(style);
 
@@ -122,6 +137,7 @@ if (!window.PLAYER || !PLAYER.nickname) {
 // possible without requiring scripts.
 document.head.innerHTML =
   '<title>Ingress Intel Map</title>' +
+  '<link rel="shortcut icon" href="/img/favicon.ico" />' +
   '<style>' +
   '@include_string:style.css@' +
   '</style>' +
@@ -131,7 +147,7 @@ document.head.innerHTML =
   '<style>' +
   '@include_css:external/jquery-ui-1.12.1-resizable.css@' +
   '</style>' +
-//note: smartphone.css injection moved into code/smartphone.js
+  // note: smartphone.css injection moved into code/smartphone.js
   '<link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Roboto:100,100italic,300,300italic,400,400italic,500,500italic,700,700italic&subset=latin,cyrillic-ext,greek-ext,greek,vietnamese,latin-ext,cyrillic"/>';
 
 // remove body element entirely to remove event listeners
@@ -629,9 +645,6 @@ window.portalRangeIndicator = null;
  */
 window.portalAccessIndicator = null;
 
-// var portalsLayers, linksLayer, fieldsLayer;
-var portalsFactionLayers, linksFactionLayers, fieldsFactionLayers;
-
 /**
  * References to Leaflet objects representing portals, indexed by entity ID.
  * This object stores the mapping in the format `{ id1: feature1, ... }`.
@@ -666,13 +679,15 @@ window.fields = {};
 
 // plugin framework. Plugins may load earlier than iitc, so don’t
 // overwrite data
-if (typeof window.plugin !== 'function') window.plugin = function() {};
+if (typeof window.plugin !== 'function') window.plugin = function () {};
 
-var ulog = (function (module) {
+// eslint-disable-next-line no-unused-vars
+const ulog = (function (module) {
   '@include_raw:external/ulog.min.js@';
   return module;
-}({})).exports;
+})({}).exports;
 
+// eslint-disable-next-line
 '@bundle_code@';
 
-/* exported ulog, portalsFactionLayers, linksFactionLayers, fieldsFactionLayers -- eslint */
+/* exported ulog -- eslint */
