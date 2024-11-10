@@ -225,6 +225,42 @@ const formatDistance = (distance) => {
 };
 
 /**
+ * Formats the time difference between two timestamps (in milliseconds) as a string.
+ *
+ * @memberof IITC.utils
+ * @function formatAgo
+ * @param {number} time - The past timestamp in milliseconds.
+ * @param {number} now - The current timestamp in milliseconds.
+ * @param {Object} [options] - Options for formatting.
+ * @param {boolean} [options.showSeconds=false] - Whether to include seconds in the result.
+ * @returns {string} The formatted time difference (e.g., "45s", "5m", "2h 45m", "1d 3h 45m")
+ */
+const formatAgo = (time, now, options = { showSeconds: false }) => {
+  const secondsTotal = Math.floor(Math.max(0, (now - time) / 1000));
+
+  // Calculate time units
+  const days = Math.floor(secondsTotal / 86400);
+  const hours = Math.floor((secondsTotal % 86400) / 3600);
+  const minutes = Math.floor((secondsTotal % 3600) / 60);
+  const seconds = secondsTotal % 60;
+
+  const result = [];
+
+  // Include units conditionally based on non-zero values
+  if (days > 0) result.push(`${days}d`);
+  if (hours > 0 || result.length !== 0) result.push(`${hours}h`);
+  if (minutes > 0 || result.length !== 0) result.push(`${minutes}m`);
+  if (options.showSeconds && (result.length === 0 || seconds > 0)) result.push(`${seconds}s`);
+
+  // If no units were added, show "0" with the smallest available unit
+  if (result.length === 0) {
+    return options.showSeconds ? '0s' : '0m';
+  }
+
+  return result.join(' ');
+};
+
+/**
  * Checks if the device is a touch-enabled device.
  * Alias for `L.Browser.touch()`
  *
@@ -253,11 +289,11 @@ const scrollBottom = (elm) => {
  * (for strings passed as parameters to html onclick="..." for example)
  *
  * @memberof IITC.utils
- * @function escapeJavascriptString
+ * @function escapeJS
  * @param {string} str - The string to escape.
  * @returns {string} The escaped string.
  */
-const escapeJavascriptString = function (str) {
+const escapeJS = function (str) {
   return (str + '').replace(/[\\"']/g, '\\$&');
 };
 
@@ -265,15 +301,19 @@ const escapeJavascriptString = function (str) {
  * Escapes HTML special characters in a string.
  *
  * @memberof IITC.utils
- * @function escapeHtmlSpecialChars
+ * @function escapeHtml
  * @param {string} str - The string to escape.
  * @returns {string} The escaped string.
  */
-const escapeHtmlSpecialChars = function (str) {
-  var div = document.createElement('div');
-  var text = document.createTextNode(str);
-  div.appendChild(text);
-  return div.innerHTML;
+const escapeHtml = function (str) {
+  const escapeMap = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (char) => escapeMap[char]);
 };
 
 /**
@@ -295,9 +335,7 @@ const prettyEnergy = (nrg) => (nrg > 1000 ? `${Math.round(nrg / 1000)}k` : nrg);
  * @returns {Array} A new array containing only unique elements.
  */
 const uniqueArray = function (arr) {
-  return $.grep(arr, function (v, i) {
-    return $.inArray(v, arr) === i;
-  });
+  return [...new Set(arr)];
 };
 
 /**
@@ -308,61 +346,57 @@ const uniqueArray = function (arr) {
  * @returns {string} HTML string representing the constructed table.
  */
 const genFourColumnTable = function (blocks) {
-  let t = $.map(blocks, function (detail, index) {
-    if (!detail) return '';
-    const title = detail[2] ? ' title="' + window.escapeHtmlSpecialChars(detail[2]) + '"' : '';
-    if (index % 2 === 0) {
-      return '<tr><td' + title + '>' + detail[1] + '</td><th' + title + '>' + detail[0] + '</th>';
-    } else {
-      return '<th' + title + '>' + detail[0] + '</th><td' + title + '>' + detail[1] + '</td></tr>';
-    }
-  }).join('');
+  const rows = blocks
+    .map((detail, index) => {
+      if (!detail) return '';
+      const title = detail[2] ? ` title="${IITC.utils.escapeHtml(detail[2])}"` : '';
 
-  // If the total number of rows is odd, add empty cells to complete the last row
-  if (blocks.length % 2 === 1) {
-    t += '<td></td><td></td></tr>';
-  }
+      if (index % 2 === 0) {
+        // If index is even, start a new row and add <td> for data and <th> for header
+        return `<tr><td${title}>${detail[1]}</td><th${title}>${detail[0]}</th>`;
+      } else {
+        // If index is odd, complete the row with <th> for header and <td> for data, then close </tr>
+        return `<th${title}>${detail[0]}</th><td${title}>${detail[1]}</td></tr>`;
+      }
+    })
+    .join('');
 
-  return t;
+  // If total number of blocks is odd, add empty cells to complete the last row
+  const isOdd = blocks.length % 2 === 1;
+  return isOdd ? rows + '<td></td><td></td></tr>' : rows;
 };
 
 /**
  * Converts text with newlines (`\n`) and tabs (`\t`) into an HTML table.
  *
  * @memberof IITC.utils
- * @function convertTextToTableMagic
+ * @function textToTable
  * @param {string} text - The text to convert.
  * @returns {string} The resulting HTML table.
  */
-const convertTextToTableMagic = function (text) {
-  // check if it should be converted to a table
-  if (!text.match(/\t/)) return text.replace(/\n/g, '<br>');
+const textToTable = function (text) {
+  // If no tabs are present, replace newlines with <br> and return
+  if (!text.includes('\t')) return text.replace(/\n/g, '<br>');
 
-  var data = [];
-  var columnCount = 0;
+  // Split text into rows and columns, tracking the max column count
+  const rows = text.split('\n').map((row) => row.split('\t'));
+  const columnCount = Math.max(...rows.map((row) => row.length));
 
-  // parse data
-  var rows = text.split('\n');
-  $.each(rows, function (i, row) {
-    data[i] = row.split('\t');
-    if (data[i].length > columnCount) columnCount = data[i].length;
-  });
+  // Build the table rows
+  const tableRows = [];
+  for (const row of rows) {
+    let rowHtml = '<tr>';
+    for (let k = 0; k < row.length; k++) {
+      const cell = IITC.utils.escapeHtml(row[k]);
+      const colspan = k === 0 && row.length < columnCount ? ` colspan="${columnCount - row.length + 1}"` : '';
+      rowHtml += `<td${colspan}>${cell}</td>`;
+    }
+    rowHtml += '</tr>';
+    tableRows.push(rowHtml);
+  }
 
-  // build the table
-  var table = '<table>';
-  $.each(data, function (i) {
-    table += '<tr>';
-    $.each(data[i], function (k, cell) {
-      var attributes = '';
-      if (k === 0 && data[i].length < columnCount) {
-        attributes = ' colspan="' + (columnCount - data[i].length + 1) + '"';
-      }
-      table += '<td' + attributes + '>' + cell + '</td>';
-    });
-    table += '</tr>';
-  });
-  table += '</table>';
-  return table;
+  // Combine all rows into a single table HTML
+  return `<table>${tableRows.join('')}</table>`;
 };
 
 /**
@@ -450,14 +484,15 @@ IITC.utils = {
   unixTimeToHHmm,
   formatInterval,
   formatDistance,
+  formatAgo,
   isTouchDevice,
   scrollBottom,
-  escapeJavascriptString,
-  escapeHtmlSpecialChars,
+  escapeJS,
+  escapeHtml,
   prettyEnergy,
   uniqueArray,
   genFourColumnTable,
-  convertTextToTableMagic,
+  textToTable,
   clamp,
   clampLatLng,
   clampLatLngBounds,
@@ -479,12 +514,12 @@ const legacyFunctionMappings = {
   formatDistance: 'formatDistance',
   isTouchDevice: 'isTouchDevice',
   scrollBottom: 'scrollBottom',
-  escapeJavascriptString: 'escapeJavascriptString',
-  escapeHtmlSpecialChars: 'escapeHtmlSpecialChars',
+  escapeJavascriptString: 'escapeJS',
+  escapeHtmlSpecialChars: 'escapeHtml',
   prettyEnergy: 'prettyEnergy',
   uniqueArray: 'uniqueArray',
   genFourColumnTable: 'genFourColumnTable',
-  convertTextToTableMagic: 'convertTextToTableMagic',
+  convertTextToTableMagic: 'textToTable',
   clamp: 'clamp',
   clampLatLng: 'clampLatLng',
   clampLatLngBounds: 'clampLatLngBounds',

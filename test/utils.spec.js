@@ -349,40 +349,109 @@ describe('IITC.utils.formatDistance', () => {
   });
 });
 
-describe('IITC.utils.escapeJavascriptString', () => {
+describe('IITC.utils.formatAgo', () => {
+  const now = Date.now();
+
+  describe('Basic functionality', () => {
+    it('should return "0s" when there is no time difference and seconds are enabled', () => {
+      expect(IITC.utils.formatAgo(now, now, { showSeconds: true })).to.equal('0s');
+    });
+
+    it('should return "0m" when time difference is negative and seconds are disabled', () => {
+      const futureTime = now + 1000;
+      expect(IITC.utils.formatAgo(futureTime, now)).to.equal('0m');
+    });
+  });
+
+  describe('Complex scenarios', () => {
+    it('should not show seconds if seconds are disabled', () => {
+      const time = now - 45 * 1000; // 45 seconds ago
+      expect(IITC.utils.formatAgo(time, now)).to.equal('0m');
+    });
+
+    it('should return only minutes if time difference is less than an hour', () => {
+      const time = now - 5 * 60 * 1000; // 5 minutes ago
+      expect(IITC.utils.formatAgo(time, now)).to.equal('5m');
+    });
+
+    it('should handle all units enabled', () => {
+      const time = now - (2 * 86400 + 5 * 3600 + 30 * 60 + 15) * 1000; // 2 days, 5 hours, 30 minutes, and 15 seconds ago
+      expect(IITC.utils.formatAgo(time, now, { showSeconds: true })).to.equal('2d 5h 30m 15s');
+    });
+  });
+});
+
+describe('IITC.utils.escapeJS', () => {
   it('should escape double quotes in the string', () => {
-    const result = IITC.utils.escapeJavascriptString('Hello "World"');
+    const result = IITC.utils.escapeJS('Hello "World"');
     expect(result).to.equal('Hello \\"World\\"');
   });
 
   it('should escape single quotes in the string', () => {
-    const result = IITC.utils.escapeJavascriptString("It's a test");
+    const result = IITC.utils.escapeJS("It's a test");
     expect(result).to.equal("It\\'s a test");
   });
 
   it('should escape backslashes in the string', () => {
-    const result = IITC.utils.escapeJavascriptString('Back\\slash');
+    const result = IITC.utils.escapeJS('Back\\slash');
     expect(result).to.equal('Back\\\\slash');
   });
 
   it('should escape a mix of special characters in the string', () => {
-    const result = IITC.utils.escapeJavascriptString('He said, "It\'s \\awesome!"');
+    const result = IITC.utils.escapeJS('He said, "It\'s \\awesome!"');
     expect(result).to.equal('He said, \\"It\\\'s \\\\awesome!\\"');
   });
 
   it('should handle an empty string', () => {
-    const result = IITC.utils.escapeJavascriptString('');
+    const result = IITC.utils.escapeJS('');
     expect(result).to.equal('');
   });
 
   it('should return the same string if no special characters are present', () => {
-    const result = IITC.utils.escapeJavascriptString('Just a regular string');
+    const result = IITC.utils.escapeJS('Just a regular string');
     expect(result).to.equal('Just a regular string');
   });
 
   it('should treat non-string inputs as strings', () => {
-    const result = IITC.utils.escapeJavascriptString(12345);
+    const result = IITC.utils.escapeJS(12345);
     expect(result).to.equal('12345');
+  });
+});
+
+describe('IITC.utils.escapeHtml', () => {
+  it('should escape HTML tags correctly', () => {
+    const result = IITC.utils.escapeHtml('<div>Hello</div>');
+    expect(result).to.equal('&lt;div&gt;Hello&lt;/div&gt;');
+  });
+
+  it('should escape script tags', () => {
+    const result = IITC.utils.escapeHtml('<script>alert("XSS")</script>');
+    expect(result).to.equal('&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;');
+  });
+
+  it('should escape ampersands', () => {
+    const result = IITC.utils.escapeHtml('Tom & Jerry');
+    expect(result).to.equal('Tom &amp; Jerry');
+  });
+
+  it('should escape double quotes', () => {
+    const result = IITC.utils.escapeHtml('"Hello"');
+    expect(result).to.equal('&quot;Hello&quot;');
+  });
+
+  it('should escape single quotes', () => {
+    const result = IITC.utils.escapeHtml("'Hello'");
+    expect(result).to.equal('&#39;Hello&#39;');
+  });
+
+  it('should escape greater than and less than symbols', () => {
+    const result = IITC.utils.escapeHtml('5 > 3 && 3 < 5');
+    expect(result).to.equal('5 &gt; 3 &amp;&amp; 3 &lt; 5');
+  });
+
+  it('should return the same string if there are no special characters', () => {
+    const result = IITC.utils.escapeHtml('No special chars');
+    expect(result).to.equal('No special chars');
   });
 });
 
@@ -420,6 +489,155 @@ describe('IITC.utils.prettyEnergy', () => {
   it('should handle negative energy values without formatting to thousands', () => {
     const result = IITC.utils.prettyEnergy(-500);
     expect(result).to.equal(-500);
+  });
+});
+
+describe('IITC.utils.uniqueArray', () => {
+  it('should remove duplicate numbers', () => {
+    const result = IITC.utils.uniqueArray([1, 2, 2, 3, 4, 4, 5]);
+    expect(result).to.deep.equal([1, 2, 3, 4, 5]);
+  });
+
+  it('should return the same array if there are no duplicates', () => {
+    const result = IITC.utils.uniqueArray([1, 2, 3, 4, 5]);
+    expect(result).to.deep.equal([1, 2, 3, 4, 5]);
+  });
+
+  it('should handle an array with all identical elements', () => {
+    const result = IITC.utils.uniqueArray([1, 1, 1, 1]);
+    expect(result).to.deep.equal([1]);
+  });
+
+  it('should return an empty array if input is empty', () => {
+    const result = IITC.utils.uniqueArray([]);
+    expect(result).to.deep.equal([]);
+  });
+});
+
+describe('IITC.utils.genFourColumnTable', () => {
+  it('should generate an empty string for an empty array', () => {
+    const result = IITC.utils.genFourColumnTable([]);
+    expect(result).to.equal('');
+  });
+
+  it('should generate a single row with two data cells for one block', () => {
+    const blocks = [['Header1', 'Data1', 'Tooltip1']];
+    const result = IITC.utils.genFourColumnTable(blocks);
+    /* eslint-disable-next-line */
+    const check = `` +
+      `<tr>` +
+      `<td title="Tooltip1">Data1</td>` +
+      `<th title="Tooltip1">Header1</th>` +
+      `<td></td>` +
+      `<td></td>` +
+      `</tr>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should generate a table with two rows for two blocks', () => {
+    const blocks = [
+      ['Header1', 'Data1', 'Tooltip1'],
+      ['Header2', 'Data2', 'Tooltip2'],
+    ];
+    const result = IITC.utils.genFourColumnTable(blocks);
+    /* eslint-disable-next-line */
+    const check = `` +
+      `<tr>` +
+      `<td title="Tooltip1">Data1</td>` +
+      `<th title="Tooltip1">Header1</th>` +
+      `<th title="Tooltip2">Header2</th>` +
+      `<td title="Tooltip2">Data2</td>` +
+      `</tr>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should correctly handle an array with an odd number of blocks by adding empty cells at the end', () => {
+    const blocks = [
+      ['Header1', 'Data1', 'Tooltip1'],
+      ['Header2', 'Data2', 'Tooltip2'],
+      ['Header3', 'Data3', 'Tooltip3'],
+    ];
+    const result = IITC.utils.genFourColumnTable(blocks);
+    /* eslint-disable-next-line */
+    const check = `` +
+      `<tr>` +
+      `<td title="Tooltip1">Data1</td>` +
+      `<th title="Tooltip1">Header1</th>` +
+      `<th title="Tooltip2">Header2</th>` +
+      `<td title="Tooltip2">Data2</td>` +
+      `</tr>` +
+      `<tr>` +
+      `<td title="Tooltip3">Data3</td>` +
+      `<th title="Tooltip3">Header3</th>` +
+      `<td></td>` +
+      `<td></td>` +
+      `</tr>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should handle missing title gracefully', () => {
+    const blocks = [
+      ['Header1', 'Data1'],
+      ['Header2', 'Data2'],
+    ];
+    const result = IITC.utils.genFourColumnTable(blocks);
+    /* eslint-disable-next-line */
+    const check = `` +
+      `<tr>` +
+      `<td>Data1</td>` +
+      `<th>Header1</th>` +
+      `<th>Header2</th>` +
+      `<td>Data2</td>` +
+      `</tr>`;
+    expect(result).to.equal(check);
+  });
+});
+
+describe('IITC.utils.textToTable', () => {
+  it('should return text with BR instead of \\n if no tabs are present', () => {
+    const text = 'Line1\nLine2\nLine3';
+    const result = IITC.utils.textToTable(text);
+    expect(result).to.equal('Line1<br>Line2<br>Line3');
+  });
+
+  it('should create a table with one row and two columns for a single tab-separated line', () => {
+    const text = 'Cell1\tCell2';
+    const result = IITC.utils.textToTable(text);
+    const check = `<table>` + `<tr><td>Cell1</td><td>Cell2</td></tr>` + `</table>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should create a table with multiple rows and columns for text with multiple lines and tabs', () => {
+    const text = 'R1C1\tR1C2\nR2C1\tR2C2\nR3C1\tR3C2';
+    const result = IITC.utils.textToTable(text);
+    const check =
+      `<table>` + `<tr><td>R1C1</td><td>R1C2</td></tr>` + `<tr><td>R2C1</td><td>R2C2</td></tr>` + `<tr><td>R3C1</td><td>R3C2</td></tr>` + `</table>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should add colspan to rows with fewer columns than the longest row', () => {
+    const text = 'R1C1\tR1C2\tR1C3\nR2C1\tR2C2\nR3C1';
+    const result = IITC.utils.textToTable(text);
+    const check =
+      `<table>` +
+      `<tr><td>R1C1</td><td>R1C2</td><td>R1C3</td></tr>` +
+      `<tr><td colspan="2">R2C1</td><td>R2C2</td></tr>` +
+      `<tr><td colspan="3">R3C1</td></tr>` +
+      `</table>`;
+    expect(result).to.equal(check);
+  });
+
+  it('should handle empty input text as is', () => {
+    const text = '';
+    const result = IITC.utils.textToTable(text);
+    expect(result).to.equal('');
+  });
+
+  it('should escape HTML special characters within cells', () => {
+    const text = 'Cell1\tCell<2>\nCell&3\tCell"4"';
+    const result = IITC.utils.textToTable(text);
+    const check = `<table>` + `<tr><td>Cell1</td><td>Cell&lt;2&gt;</td></tr>` + `<tr><td>Cell&amp;3</td><td>Cell&quot;4&quot;</td></tr>` + `</table>`;
+    expect(result).to.equal(check);
   });
 });
 
