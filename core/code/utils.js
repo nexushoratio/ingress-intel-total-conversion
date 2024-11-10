@@ -190,7 +190,13 @@ const formatInterval = (seconds, maxTerms) => {
 };
 
 /**
- * Formats a distance in meters, converting to kilometers if the distance is over 10,000 meters.
+ * Formats a distance in meters, converting to kilometers with appropriate precision
+ * based on the distance range.
+ *
+ * For distances:
+ * - Under 1000m: shows in meters, rounded to whole numbers
+ * - 1000m to 9999m: shows in kilometers with 1 decimal place
+ * - 10000m and above: shows in whole kilometers
  *
  * @memberof IITC.utils
  * @function formatDistance
@@ -199,9 +205,22 @@ const formatInterval = (seconds, maxTerms) => {
  */
 const formatDistance = (distance) => {
   if (distance === null || distance === undefined) return '';
-  const isKilometers = distance > 10000;
-  const value = isKilometers ? (distance / 1000).toFixed(2) : Math.round(distance);
-  const unit = isKilometers ? 'km' : 'm';
+  let value, unit;
+
+  if (distance >= 10000) {
+    // For 10km and above: show whole kilometers
+    value = Math.round(distance / 1000);
+    unit = 'km';
+  } else if (distance >= 1000) {
+    // For 1km to 9.9km: show kilometers with one decimal
+    value = Math.round(distance / 100) / 10;
+    unit = 'km';
+  } else {
+    // For under 1km: show in meters
+    value = Math.round(distance);
+    unit = 'm';
+  }
+
   return `${IITC.utils.formatNumber(value)}${unit}`;
 };
 
@@ -255,17 +274,13 @@ const showPortalPosLinks = (lat, lng, name) => {
 
 /**
  * Checks if the device is a touch-enabled device.
+ * Alias for `L.Browser.touch()`
  *
  * @memberof IITC.utils
  * @function isTouchDevice
  * @returns {boolean} True if the device is touch-enabled, otherwise false.
  */
-const isTouchDevice = function () {
-  return (
-    'ontouchstart' in window || // works on most browsers
-    'onmsgesturechange' in window
-  ); // works on ie10
-};
+const isTouchDevice = () => L.Browser.touch;
 
 /**
  * Calculates the number of pixels left to scroll down before reaching the bottom of an element.
@@ -497,26 +512,6 @@ const clampLatLngBounds = function (bounds) {
   return L.latLngBounds(window.clampLatLng(SW), window.clampLatLng(NE));
 };
 
-/*
-pnpoly Copyright (c) 1970-2003, Wm. Randolph Franklin
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
-documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
-rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit
-persons to whom the Software is furnished to do so, subject to the following conditions:
-
-  1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
-     disclaimers.
-  2. Redistributions in binary form must reproduce the above copyright notice in the documentation and/or other
-     materials provided with the distribution.
-  3. The name of W. Randolph Franklin may not be used to endorse or promote products derived from this Software without
-     specific prior written permission.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
-WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
 /**
  * Determines if a point is inside a polygon.
  *
@@ -525,10 +520,10 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * @param {L.LatLng} point - The point to test.
  * @returns {boolean} True if the point is inside the polygon, false otherwise.
  */
-const pnpoly = function (polygon, point) {
-  var inside = 0;
+const isPointInPolygon = (polygon, point) => {
+  let inside = 0;
   // j records previous value. Also handles wrapping around.
-  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     inside ^=
       polygon[i].y > point.y !== polygon[j].y > point.y &&
       point.x - polygon[i].x < ((polygon[j].x - polygon[i].x) * (point.y - polygon[i].y)) / (polygon[j].y - polygon[i].y);
@@ -610,54 +605,56 @@ IITC.utils = {
   clamp,
   clampLatLng,
   clampLatLngBounds,
-  pnpoly,
+  isPointInPolygon,
   makePrimeLink,
   makePermalink,
 };
 
-// List of functions to track for synchronization between window.* and IITC.utils.*
-const legacyFunctions = [
-  'getURLParam',
-  'readCookie',
-  'writeCookie',
-  'eraseCookie',
-  'digits',
-  'zeroPad',
-  'unixTimeToString',
-  'unixTimeToDateTimeString',
-  'unixTimeToHHmm',
-  'formatInterval',
-  'formatDistance',
-  'rangeLinkClick',
-  'showPortalPosLinks',
-  'isTouchDevice',
-  'scrollBottom',
-  'zoomToAndShowPortal',
-  'selectPortalByLatLng',
-  'escapeJavascriptString',
-  'escapeHtmlSpecialChars',
-  'prettyEnergy',
-  'uniqueArray',
-  'genFourColumnTable',
-  'convertTextToTableMagic',
-  'clamp',
-  'clampLatLng',
-  'clampLatLngBounds',
-  'pnpoly',
-  'makePrimeLink',
-  'makePermalink',
-];
+// Map of legacy function names to their new names (or the same name if not renamed)
+const legacyFunctionMappings = {
+  getURLParam: 'getURLParam',
+  readCookie: 'getCookie',
+  writeCookie: 'setCookie',
+  eraseCookie: 'deleteCookie',
+  digits: 'formatNumber',
+  zeroPad: 'zeroPad',
+  unixTimeToString: 'unixTimeToString',
+  unixTimeToDateTimeString: 'unixTimeToDateTimeString',
+  unixTimeToHHmm: 'unixTimeToHHmm',
+  formatInterval: 'formatInterval',
+  formatDistance: 'formatDistance',
+  rangeLinkClick: 'rangeLinkClick',
+  showPortalPosLinks: 'showPortalPosLinks',
+  isTouchDevice: 'isTouchDevice',
+  scrollBottom: 'scrollBottom',
+  zoomToAndShowPortal: 'zoomToAndShowPortal',
+  selectPortalByLatLng: 'selectPortalByLatLng',
+  escapeJavascriptString: 'escapeJavascriptString',
+  escapeHtmlSpecialChars: 'escapeHtmlSpecialChars',
+  prettyEnergy: 'prettyEnergy',
+  uniqueArray: 'uniqueArray',
+  genFourColumnTable: 'genFourColumnTable',
+  convertTextToTableMagic: 'convertTextToTableMagic',
+  clamp: 'clamp',
+  clampLatLng: 'clampLatLng',
+  clampLatLngBounds: 'clampLatLngBounds',
+  pnpoly: 'isPointInPolygon',
+  makePrimeLink: 'makePrimeLink',
+  makePermalink: 'makePermalink',
+};
 
-legacyFunctions.forEach((funcName) => {
-  window.IITC.utils[funcName] = window.IITC.utils[funcName] || function () {};
+// Set up synchronization between `window` and `IITC.utils` with new names
+Object.entries(legacyFunctionMappings).forEach(([oldName, newName]) => {
+  // Initialize IITC.utils[newName] if not already defined
+  window.IITC.utils[newName] = window.IITC.utils[newName] || function () {};
 
   // Define a getter/setter on `window` to synchronize with `IITC.utils`
-  Object.defineProperty(window, funcName, {
+  Object.defineProperty(window, oldName, {
     get() {
-      return window.IITC.utils[funcName];
+      return window.IITC.utils[newName];
     },
     set(newFunc) {
-      window.IITC.utils[funcName] = newFunc;
+      window.IITC.utils[newName] = newFunc;
     },
     configurable: true,
   });
