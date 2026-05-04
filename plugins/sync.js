@@ -744,7 +744,7 @@ window.plugin.sync.toggleAuthButton = function () {
 
   $('#sync-authButton').html(authed ? 'Authorized' : 'Authorize');
 
-  $('#sync-authButton').attr('disabled', authed || authorizing);
+  $('#sync-authButton').prop('disabled', authed || authorizing);
   $('#sync-authButton').toggleClass('sync-authButton-dimmed', authed || authorizing);
 
   $('#sync-signOutButton').toggle(authed === true);
