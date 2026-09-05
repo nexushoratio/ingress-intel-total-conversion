@@ -10,7 +10,7 @@
 var changelog = [
   {
     version: '0.6.1',
-    changes: ['Note Draw Tools as a synced plugin in the description'],
+    changes: ['Note Draw Tools as a synced plugin in the description', 'Let plugins register synced fields regardless of plugin load order'],
   },
   {
     version: '0.6.0',
@@ -72,6 +72,8 @@ window.plugin.sync.updateMap = function (pluginName, fieldName, keyArray) {
   registeredMap.updateMap(keyArray);
 };
 
+const pendingRegistrations = [];
+
 // Other plugin call this to register a field as CollaborativeMap to sync with Google Drive API
 // example: plugin.sync.registerMapForSync('keys', 'keysdata', plugin.keys.updateCallback, plugin.keys.initializedCallback)
 // which register plugin.keys.keysdata
@@ -83,7 +85,16 @@ window.plugin.sync.updateMap = function (pluginName, fieldName, keyArray) {
 //
 // initializedCallback function format: function(pluginName, fieldName)
 // initializedCallback will be fired when the storage finished initialize and good to use
+//
+// Callable from the moment plugin.sync exists: setup replays whatever registered before it ran.
+// Earlier than that there is nothing to call, so those plugins wait for the 'pluginSyncReady' hook
 window.plugin.sync.registerMapForSync = function (pluginName, fieldName, callback, initializedCallback) {
+  // authorizer and uuid only exist from setup, so buffer the arguments and register from there
+  if (!window.plugin.sync.registeredPluginsFields) {
+    pendingRegistrations.push([pluginName, fieldName, callback, initializedCallback]);
+    return;
+  }
+
   var options, registeredMap;
   options = {
     pluginName: pluginName,
@@ -914,6 +925,11 @@ var setup = function () {
   $.getScript(GOOGLEAPI).done(function () {
     window.gapi.load('client:auth2', window.plugin.sync.authorizer.authorize);
   });
+
+  pendingRegistrations.splice(0).forEach((args) => window.plugin.sync.registerMapForSync(...args));
+
+  // lets plugins that ran before this one was loaded register their fields
+  window.runHooks('pluginSyncReady');
 };
 
 setup.priority = 'high';

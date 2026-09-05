@@ -1,13 +1,14 @@
 // @author         jonatkins
 // @name           Missions
 // @category       Info
-// @version        0.3.6
+// @version        0.3.7
 // @description    View missions. Marking progress on waypoints/missions basis. Showing mission paths on the map.
 
 /* exported setup, changelog --eslint */
 /* global IITC, L -- eslint */
 
 var changelog = [
+  { version: '0.3.7', changes: ['Register with the Sync plugin regardless of plugin load order'] },
   { version: '0.3.6', changes: ['Refactoring: update Leaflet API usage'] },
   {
     version: '0.3.5',
@@ -1323,10 +1324,16 @@ window.plugin.missions = {
     window.addHook('plugin-missions-waypoint-changed', this.onWaypointChanged.bind(this));
     window.addHook('plugin-missions-waypoints-refreshed', this.onWaypointsRefreshed.bind(this));
 
-    if (window.plugin.sync) {
+    const registerFieldsForSyncing = () => {
+      // sync may not be loaded yet, and fires this hook once it is
+      if (!window.plugin.sync) {
+        window.addHook('pluginSyncReady', registerFieldsForSyncing);
+        return;
+      }
       window.plugin.sync.registerMapForSync('missions', 'checkedMissions', this.syncCallback.bind(this), this.syncInitialed.bind(this));
       window.plugin.sync.registerMapForSync('missions', 'checkedWaypoints', this.syncCallback.bind(this), this.syncInitialed.bind(this));
-    }
+    };
+    registerFieldsForSyncing();
 
     setTimeout(this.onIITCLoaded.bind(this));
   },

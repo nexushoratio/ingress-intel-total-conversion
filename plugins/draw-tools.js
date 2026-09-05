@@ -8,7 +8,13 @@
 /* exported setup, changelog --eslint */
 
 var changelog = [
-  { version: '0.13.0', changes: ['Sync drawn items across devices via the Sync plugin (Multi-Projects-Extension aware)'] },
+  {
+    version: '0.13.0',
+    changes: [
+      'Sync drawn items across devices via the Sync plugin (Multi-Projects-Extension aware)',
+      'Register with the Sync plugin regardless of plugin load order',
+    ],
+  },
   { version: '0.12.1', changes: ['Refactoring: update Leaflet API usage'] },
   {
     version: '0.11.0',
@@ -1178,7 +1184,11 @@ window.plugin.drawTools.reconcileAfterMpeChange = (data) => {
 };
 
 window.plugin.drawTools.registerFieldForSyncing = () => {
-  if (!window.plugin.sync) return;
+  // sync may not be loaded yet, and fires this hook once it is
+  if (!window.plugin.sync) {
+    window.addHook('pluginSyncReady', window.plugin.drawTools.registerFieldForSyncing);
+    return;
+  }
   // seeding rewrote storage, so the layers already on the map still carry no ids
   if (window.plugin.drawTools.seedItemMap()) {
     window.plugin.drawTools.drawnItems.clearLayers();
